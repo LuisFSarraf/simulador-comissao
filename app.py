@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Painel Executivo Comercial", layout="wide")
+st.set_page_config(page_title="Painel Comercial", layout="wide")
 
 # =========================
 # ESTILO
@@ -21,11 +21,10 @@ st.markdown("""
 .value {font-size:28px;font-weight:bold;}
 .small {font-size:14px;opacity:0.85;}
 .ok {color:#3b82f6;}
-.warn {color:#fbbf24;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Executivo Comercial")
+st.title("📊 Painel Comercial - Comissão & Metas")
 
 # =========================
 # INPUTS
@@ -40,14 +39,46 @@ def input_user(nome):
     return t, e, c
 
 with col1:
-    t1,e1,c1 = input_user("Luis Felipe")
+    t1, e1, c1 = input_user("Luis Felipe")
 with col2:
-    t2,e2,c2 = input_user("Fernando")
+    t2, e2, c2 = input_user("Fernando")
 with col3:
-    t3,e3,c3 = input_user("Outro")
+    t3, e3, c3 = input_user("Outro")
 
 # =========================
-# FUNÇÕES
+# SUCCESS FEE
+# =========================
+st.subheader("📈 Success Fee (Meta R$ 5.000)")
+
+sf_valor = st.number_input("Valor transacionado no mês (R$)", 0)
+meta_sf = 5000
+
+sf_percent = (sf_valor / meta_sf) * 100 if meta_sf > 0 else 0
+
+if sf_percent >= 150:
+    bonusSF = 500
+    faixa_sf = "150% (Excelência)"
+elif sf_percent >= 120:
+    bonusSF = 300
+    faixa_sf = "120% (Superação)"
+elif sf_percent >= 100:
+    bonusSF = 200
+    faixa_sf = "100% (Meta atingida)"
+else:
+    bonusSF = 0
+    faixa_sf = "Abaixo da meta"
+
+st.markdown(f"""
+<div class="card">
+<div class="title">Success Fee</div>
+<div class="value ok">R$ {sf_valor}</div>
+<div class="small">{sf_percent:.1f}% - {faixa_sf}</div>
+<div class="small">Bônus do time: R$ {bonusSF}</div>
+</div>
+""", unsafe_allow_html=True)
+
+# =========================
+# CORINGA (ENTRA NA META)
 # =========================
 def aplicar_coringa(t, e, c):
 
@@ -59,10 +90,15 @@ def aplicar_coringa(t, e, c):
     faltam_e = max(0, 20 - e)
     usados_e = min(restante, faltam_e)
 
-    return t + usados_t, e + usados_e, usados_t, usados_e
+    final_t = t + usados_t
+    final_e = e + usados_e
 
+    return final_t, final_e, usados_t, usados_e
 
-def faixa(t, e):
+# =========================
+# FAIXA DO TIME
+# =========================
+def calcular_faixa(t, e):
 
     pct_t = t / 50
     pct_e = e / 20
@@ -79,34 +115,30 @@ def faixa(t, e):
     else:
         return 0, "Abaixo"
 
-
-def comissao(total):
-    return total * 50
-
-
 # =========================
 # EXECUÇÃO
 # =========================
 if st.button("Calcular"):
 
-    # TOTAL TIME
-    total_t = t1+t2+t3
-    total_e = e1+e2+e3
-    total_c = c1+c2+c3
+    # TOTAL BRUTO
+    total_t = t1 + t2 + t3
+    total_e = e1 + e2 + e3
+    total_c = c1 + c2 + c3
 
-    # CORINGA ENTRA NA META
+    # CORINGAS ENTRAM NA META
     final_t, final_e, ut, ue = aplicar_coringa(total_t, total_e, total_c)
 
-    bonus_faixa, faixa_nome = faixa(final_t, final_e)
+    # FAIXA
+    bonus_faixa, faixa = calcular_faixa(final_t, final_e)
 
     # =========================
-    # KPIs
+    # KPIs TIME
     # =========================
-    pct_t = (final_t/50)*100
-    pct_e = (final_e/20)*100
-    media = (pct_t + pct_e)/2
+    pct_t = (final_t / 50) * 100
+    pct_e = (final_e / 20) * 100
+    media = (pct_t + pct_e) / 2
 
-    st.subheader("🎯 KPIs do Time")
+    st.subheader("🎯 Metas do Time")
 
     st.markdown(f"""
 <div class="card">
@@ -121,11 +153,10 @@ if st.button("Calcular"):
 <div class="value ok">{media:.1f}%</div>
 
 <div class="title">Faixa</div>
-<div class="value ok">{faixa_nome}</div>
+<div class="value ok">{faixa}</div>
 
 <div class="small">Bônus faixa: R$ {bonus_faixa}</div>
-
-<div class="small">Coringas usados: {ut+ue}</div>
+<div class="small">Coringas usados: {ut + ue}</div>
 
 </div>
 """, unsafe_allow_html=True)
@@ -141,66 +172,79 @@ if st.button("Calcular"):
 
     df = []
 
-    for nome,t,e,c in pessoas:
-        total = t+e+c
-        df.append([nome, t, e, c, total])
+    for nome, t, e, c in pessoas:
+        contratos = t + e + c
+        producao_real = t + e
 
-    df = pd.DataFrame(df, columns=["Pessoa","Transportadoras","Embarcadores","Coringas","Contratos"])
+        comissao = producao_real * 50
+        total = comissao + bonus_faixa + bonusSF
 
-    # ranking
-    df_rank = df.sort_values("Contratos", ascending=False)
-    df_rank["% Time"] = (df_rank["Contratos"] / df_rank["Contratos"].sum()) * 100
+        df.append([nome, t, e, c, producao_real, comissao, total])
+
+    df = pd.DataFrame(df, columns=[
+        "Pessoa","Transportadoras","Embarcadores","Coringas",
+        "Produção","Comissão","Total"
+    ])
 
     # =========================
     # RANKING
     # =========================
-    st.subheader("🏆 Ranking por Contratos")
+    df_rank = df.sort_values("Produção", ascending=False)
+    df_rank["% do Time"] = (df_rank["Produção"] / df_rank["Produção"].sum() * 100).round(1)
+
+    st.subheader("🏆 Ranking de Produção")
 
     st.dataframe(df_rank, use_container_width=True)
 
     # =========================
     # ALERTAS
     # =========================
-    st.subheader("⚡ Alertas de Meta")
-
-    falta_t = max(0, 50 - final_t)
-    falta_e = max(0, 20 - final_e)
+    st.subheader("⚡ Faltam para Meta")
 
     st.markdown(f"""
 <div class="card">
 
-<div class="title">Faltam para meta</div>
+<div class="title">Transportadoras</div>
+<div class="value">{max(0, 50 - final_t)}</div>
 
-<div class="small">Transportadoras: {falta_t}</div>
-<div class="small">Embarcadores: {falta_e}</div>
+<div class="title">Embarcadores</div>
+<div class="value">{max(0, 20 - final_e)}</div>
 
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
-    # RESUMO INDIVIDUAL
+    # RESULTADO INDIVIDUAL
     # =========================
     st.subheader("💰 Resultado Individual")
 
-    for nome,t,e,c in pessoas:
+    for nome, t, e, c in pessoas:
 
-        total = t+e+c
-        valor = comissao(total) + bonus_faixa
+        producao_real = t + e
+        comissao = producao_real * 50
+        total = comissao + bonus_faixa + bonusSF
 
         st.markdown(f"""
 <div class="card">
 
 <div class="title">{nome}</div>
 
-<div class="value">{total} contratos</div>
+<div class="value">{producao_real} contratos</div>
 
 <div class="small">
-Comissão: R$ {comissao(total)}<br>
-Bônus faixa: R$ {bonus_faixa}
+Transportadoras: {t}<br>
+Embarcadores: {e}<br>
+Coringas: {c}
+</div>
+
+<div class="small">
+Comissão: R$ {comissao}<br>
+Bônus faixa: R$ {bonus_faixa}<br>
+Success Fee: R$ {bonusSF}
 </div>
 
 <div class="value ok">
-Total: R$ {valor}
+Total: R$ {total}
 </div>
 
 </div>

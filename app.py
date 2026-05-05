@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="SaaS Comercial", layout="wide")
+st.set_page_config(page_title="SaaS Comercial Inteligente", layout="wide")
 
 # =========================
 # UI
@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 SaaS Comercial - Performance Inteligente")
+st.title("📊 SaaS Comercial - Otimizador de Performance")
 
 # =========================
 # INPUTS
@@ -64,31 +64,71 @@ def calc_sf(sf):
 bonusSF, nivelSF = calc_sf(sf)
 
 # =========================
-# CORINGA AUTOMÁTICO
-# =========================
-def aplicar_coringa(t, e, c):
-
-    uso_t = min(c, max(0, 50 - t))
-    resto = c - uso_t
-    uso_e = min(resto, max(0, 20 - e))
-
-    return t + uso_t, e + uso_e, c
-
-# =========================
 # FAIXA
 # =========================
 def faixa(t, e):
-
     if t >= 50 and e >= 20:
-        return 1000, "Faixa 4", (50,20)
+        return 1000, "Faixa 4"
     elif t >= 40 and e >= 16:
-        return 800, "Faixa 3", (40,16)
+        return 800, "Faixa 3"
     elif t >= 30 and e >= 12:
-        return 600, "Faixa 2", (30,12)
+        return 600, "Faixa 2"
     elif t >= 20 and e >= 8:
-        return 400, "Faixa 1", (20,8)
+        return 400, "Faixa 1"
     else:
-        return 0, "Sem faixa", (20,8)
+        return 0, "Sem faixa"
+
+# =========================
+# CORINGA OTIMIZADO (NÚCLEO DO SISTEMA)
+# =========================
+def aplicar_otimizacao(t, e, c):
+
+    def simular(t0, e0, c0, prioridade):
+
+        t, e, c = t0, e0, c0
+
+        if prioridade == "T":
+
+            uso_t = min(c, max(0, 50 - t))
+            c -= uso_t
+            t += uso_t
+
+            uso_e = min(c, max(0, 20 - e))
+            e += uso_e
+
+        else:
+
+            uso_e = min(c, max(0, 20 - e))
+            c -= uso_e
+            e += uso_e
+
+            uso_t = min(c, max(0, 50 - t))
+            t += uso_t
+
+        return t, e
+
+    def score(t, e):
+
+        if t >= 50 and e >= 20:
+            return 4
+        elif t >= 40 and e >= 16:
+            return 3
+        elif t >= 30 and e >= 12:
+            return 2
+        elif t >= 20 and e >= 8:
+            return 1
+        else:
+            return 0
+
+    # simula os dois cenários
+    t1, e1 = simular(t, e, c, "T")
+    t2, e2 = simular(t, e, c, "E")
+
+    # escolhe melhor
+    if score(t1, e1) >= score(t2, e2):
+        return t1, e1
+    else:
+        return t2, e2
 
 # =========================
 # EXECUÇÃO
@@ -102,12 +142,9 @@ if st.button("🚀 Calcular"):
     e_total = e1 + e2 + e3
     c_total = c1 + c2 + c3
 
-    t_final, e_final, c_usado = aplicar_coringa(t_total, e_total, c_total)
+    t_final, e_final = aplicar_otimizacao(t_total, e_total, c_total)
 
-    bonus, faixa_nome, target = faixa(t_final, e_final)
-
-    falta_t = max(0, target[0] - t_final)
-    falta_e = max(0, target[1] - e_final)
+    bonus, faixa_nome = faixa(t_final, e_final)
 
     # =========================
     # INDIVIDUAL
@@ -125,7 +162,7 @@ if st.button("🚀 Calcular"):
     for nome, t, e, c in pessoas:
 
         contratos = t + e + c
-        comissao = contratos * 50
+        comissao = (t + e) * 50   # CORRETO: coringa não entra em comissão
 
         df.append([nome, t, e, c, contratos, comissao])
 
@@ -160,16 +197,6 @@ if st.button("🚀 Calcular"):
     colD.metric("Bônus", f"R$ {bonus}")
 
     st.write(f"📈 Success Fee: {nivelSF} → R$ {bonusSF}")
-
-    # =========================
-    # PROGRESSO
-    # =========================
-    st.subheader("🎯 Progresso para próxima faixa")
-
-    st.write(f"Faltam {falta_t} Transportadoras")
-    st.write(f"Faltam {falta_e} Embarcadores")
-
-    st.progress(min((t_final + e_final) / (target[0] + target[1]), 1.0))
 
     # =========================
     # RANKING

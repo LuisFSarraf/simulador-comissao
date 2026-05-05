@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
 # =========================
-# CSS LIMPO
+# ESTILO
 # =========================
 st.markdown("""
 <style>
@@ -11,19 +11,31 @@ st.markdown("""
 
 .card {
     background:#1e293b;
-    padding:22px;
-    border-radius:16px;
-    margin-bottom:14px;
+    padding:18px;
+    border-radius:14px;
+    margin-bottom:12px;
 }
 
-.title {font-size:20px;font-weight:600;}
-.value {font-size:30px;font-weight:bold;}
-.small {font-size:14px;opacity:0.8;}
+.title {
+    font-size:18px;
+    font-weight:600;
+}
+
+.value {
+    font-size:28px;
+    font-weight:bold;
+}
+
+.small {
+    font-size:14px;
+    opacity:0.85;
+}
+
 .ok {color:#3b82f6;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Dashboard Comercial")
+st.title("📊 Dashboard Comercial - Comissão")
 
 # =========================
 # INPUTS
@@ -38,138 +50,158 @@ def input_user(nome):
     return t, e, c
 
 with col1:
-    t1,e1,c1 = input_user("Luis Felipe")
+    t1, e1, c1 = input_user("Luis Felipe")
+
 with col2:
-    t2,e2,c2 = input_user("Fernando")
+    t2, e2, c2 = input_user("Fernando")
+
 with col3:
-    t3,e3,c3 = input_user("Outro")
+    t3, e3, c3 = input_user("Outro")
 
 # =========================
-# SUCCESS FEE (CORRETO)
+# SUCCESS FEE (TIME)
 # =========================
-st.subheader("📈 Success Fee")
+st.subheader("📈 Success Fee (Meta R$ 5.000)")
 
-sf_valor = st.number_input("Valor transacionado (R$)", 0)
+sf_valor = st.number_input("Valor transacionado no mês (R$)", 0)
 meta_sf = 5000
 
-sf_percent = (sf_valor/meta_sf)*100
+sf_percent = (sf_valor / meta_sf) * 100 if meta_sf > 0 else 0
 
 if sf_percent >= 150:
     bonusSF = 500
-    faixa_sf = "150%"
+    faixa_sf = "150% (Excelência)"
 elif sf_percent >= 120:
     bonusSF = 300
-    faixa_sf = "120%"
+    faixa_sf = "120% (Superação)"
 elif sf_percent >= 100:
     bonusSF = 200
-    faixa_sf = "100%"
+    faixa_sf = "100% (Meta atingida)"
 else:
     bonusSF = 0
-    faixa_sf = "Abaixo"
+    faixa_sf = "Abaixo da meta"
 
 st.markdown(f"""
 <div class="card">
 <div class="title">Success Fee</div>
 <div class="value ok">R$ {sf_valor}</div>
 <div class="small">{sf_percent:.1f}% - {faixa_sf}</div>
-<div class="small">Bônus time: R$ {bonusSF}</div>
+<div class="small">Bônus do time: R$ {bonusSF}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # =========================
-# CORINGA (CLARO)
+# CORINGA (SOMENTE REDISTRIBUIÇÃO)
 # =========================
-def coringa(t,e,c):
-    bonus=0
-    faixa="Abaixo"
-    ut,ue=0,0
+def aplicar_coringa(t, e, c):
+    """
+    Coringa NÃO impacta bônus nem meta.
+    Apenas redistribui contratos entre categorias.
+    """
 
-    for i in range(c+1):
-        tF=t+i
-        eF=e+(c-i)
+    melhor_t = t
+    melhor_e = e
 
-        if tF>=50 and eF>=20:
-            return 1000,"Faixa 4",i,c-i
-        if tF>=40 and eF>=16:
-            bonus,faixa,ut,ue=800,"Faixa 3",i,c-i
-        elif tF>=30 and eF>=12:
-            bonus,faixa,ut,ue=600,"Faixa 2",i,c-i
-        elif tF>=20 and eF>=8:
-            bonus,faixa,ut,ue=400,"Faixa 1",i,c-i
+    for i in range(c + 1):
+        t_temp = t + i
+        e_temp = e + (c - i)
 
-    return bonus,faixa,ut,ue
+        if (t_temp + e_temp) >= (melhor_t + melhor_e):
+            melhor_t = t_temp
+            melhor_e = e_temp
+
+    return melhor_t, melhor_e
 
 # =========================
-# CALCULAR
+# EXECUÇÃO
 # =========================
 if st.button("Calcular"):
 
-    total_t=t1+t2+t3
-    total_e=e1+e2+e3
-    total_c=c1+c2+c3
+    # TOTAL BRUTO
+    total_t = t1 + t2 + t3
+    total_e = e1 + e2 + e3
+    total_c = c1 + c2 + c3
 
-    bonus_faixa,faixa,ut,ue=coringa(total_t,total_e,total_c)
+    # AJUSTE CORINGA (APENAS ORGANIZAÇÃO)
+    final_t, final_e = aplicar_coringa(total_t, total_e, total_c)
 
-    # =========================
-    # COMISSÃO INDIVIDUAL REAL
-    # =========================
-    def comissao(t,e,c):
-        return (t+e+c)*50
-
-    # =========================
-    # RESULTADO INDIVIDUAL (CORRETO CONCEITUALMENTE)
-    # =========================
-    st.subheader("💰 Resultado Individual")
-
-    pessoas=[
-        ("Luis Felipe",t1,e1,c1),
-        ("Fernando",t2,e2,c2),
-        ("Outro",t3,e3,c3)
-    ]
-
-    cards=""
-
-    for nome,t,e,c in pessoas:
-
-        contratos=t+e+c
-
-        com=comissao(t,e,c)
-
-        # bônus coletivos são SOMADOS mas explicitados
-        total=com+bonus_faixa+bonusSF
-
-        cards+=f"""
-        <div class="card">
-            <div class="title">{nome}</div>
-
-            <div class="value">{contratos} contratos</div>
-
-            <div class="small">
-            💼 Comissão (individual): R$ {com}<br>
-            🏆 Bônus faixa (time): R$ {bonus_faixa}<br>
-            📈 Success Fee (time): R$ {bonusSF}<br>
-            🔁 Coringas aplicados no time: +{ut}/{ue}
-            </div>
-
-            <div class="value ok">
-            💰 Total: R$ {total}
-            </div>
-        </div>
-        """
-
-    st.markdown(cards,unsafe_allow_html=True)
+    ut = final_t - total_t
+    ue = final_e - total_e
 
     # =========================
-    # RESUMO DO TIME
+    # FAIXA DO TIME
     # =========================
-    st.subheader("🎯 Time")
+    def calcular_faixa(t, e):
+        if t >= 50 and e >= 20:
+            return 1000, "Faixa 4"
+        elif t >= 40 and e >= 16:
+            return 800, "Faixa 3"
+        elif t >= 30 and e >= 12:
+            return 600, "Faixa 2"
+        elif t >= 20 and e >= 8:
+            return 400, "Faixa 1"
+        else:
+            return 0, "Abaixo"
+
+    bonus_faixa, faixa = calcular_faixa(final_t, final_e)
+
+    # =========================
+    # COMISSÃO
+    # =========================
+    def comissao(t, e, c):
+        return (t + e + c) * 50
+
+    def total_individual(t, e, c):
+        return comissao(t, e, c) + bonus_faixa + bonusSF
+
+    # =========================
+    # RESUMO TIME
+    # =========================
+    st.subheader("🎯 Metas do Time")
 
     st.markdown(f"""
     <div class="card">
-    <div class="title">Faixa do Time</div>
+    <div class="title">Transportadoras</div>
+    <div class="value ok">{final_t} / 50</div>
+
+    <div class="title">Embarcadores</div>
+    <div class="value ok">{final_e} / 20</div>
+
+    <div class="title">Faixa</div>
     <div class="value ok">{faixa}</div>
 
     <div class="small">Bônus faixa: R$ {bonus_faixa}</div>
-    <div class="small">Coringas: +{ut}/{ue}</div>
+
+    <div class="small">
+    Coringas (redistribuição): +{ut} / +{ue}
     </div>
-    """,unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
+
+    # =========================
+    # RESULTADO INDIVIDUAL
+    # =========================
+    st.subheader("💰 Resultado Individual")
+
+    pessoas = [
+        ("Luis Felipe", t1, e1, c1),
+        ("Fernando", t2, e2, c2),
+        ("Outro", t3, e3, c3)
+    ]
+
+    for nome, t, e, c in pessoas:
+
+        contratos = t + e + c
+        com = comissao(t, e, c)
+        total = total_individual(t, e, c)
+
+        st.markdown(f"""
+### {nome}
+
+- Contratos: **{contratos}**
+- Comissão: R$ {com}
+- Bônus faixa (time): R$ {bonus_faixa}
+- Success Fee (time): R$ {bonusSF}
+
+💰 **Total: R$ {total}**
+""")

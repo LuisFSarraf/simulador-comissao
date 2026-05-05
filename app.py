@@ -3,28 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Painel Comercial", layout="wide")
 
-# =========================
-# ESTILO
-# =========================
-st.markdown("""
-<style>
-.main {background-color:#0f172a;color:white;}
-
-.card {
-    background:#1e293b;
-    padding:18px;
-    border-radius:14px;
-    margin-bottom:14px;
-}
-
-.title {font-size:18px;font-weight:600;}
-.value {font-size:28px;font-weight:bold;}
-.small {font-size:14px;opacity:0.85;}
-.ok {color:#3b82f6;}
-</style>
-""", unsafe_allow_html=True)
-
-st.title("📊 Painel Comercial - Metas & Comissão")
+st.title("📊 Painel Comercial - CORRIGIDO")
 
 # =========================
 # INPUTS
@@ -48,24 +27,19 @@ with col3:
 # =========================
 # SUCCESS FEE (TIME)
 # =========================
-st.subheader("📈 Success Fee (Meta R$ 5.000)")
+sf_valor = st.number_input("Success Fee (R$)", 0)
 
-sf_valor = st.number_input("Valor transacionado no mês (R$)", 0)
-meta_sf = 5000
-
-sf_percent = (sf_valor / meta_sf) * 100 if meta_sf else 0
-
-if sf_percent >= 150:
+if sf_valor >= 7500:
     bonusSF = 500
-elif sf_percent >= 120:
+elif sf_valor >= 6000:
     bonusSF = 300
-elif sf_percent >= 100:
+elif sf_valor >= 5000:
     bonusSF = 200
 else:
     bonusSF = 0
 
 # =========================
-# CORINGA (SÓ META - NÃO VISUAL)
+# CORINGA
 # =========================
 def aplicar_coringa(t, e, c):
 
@@ -82,19 +56,17 @@ def aplicar_coringa(t, e, c):
 # =========================
 # FAIXA DO TIME
 # =========================
-def calcular_faixa(t, e):
+def faixa(t, e):
 
-    pct_t = t / 50
-    pct_e = e / 20
-    media = (pct_t + pct_e) / 2
+    pct = (t/50 + e/20) / 2
 
-    if pct_t >= 1 and pct_e >= 1:
+    if pct >= 1:
         return 1000, "Faixa 4"
-    elif media >= 0.9:
+    elif pct >= 0.9:
         return 800, "Faixa 3"
-    elif media >= 0.75:
+    elif pct >= 0.75:
         return 600, "Faixa 2"
-    elif media >= 0.5:
+    elif pct >= 0.5:
         return 400, "Faixa 1"
     else:
         return 0, "Sem faixa"
@@ -104,18 +76,17 @@ def calcular_faixa(t, e):
 # =========================
 if st.button("Calcular"):
 
-    # TOTAL BRUTO
+    # TIME TOTAL
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
-    # CORINGA APLICADO NA META
     final_t, final_e = aplicar_coringa(total_t, total_e, total_c)
 
-    bonus_faixa, faixa_nome = calcular_faixa(final_t, final_e)
+    bonus_faixa, faixa_nome = faixa(final_t, final_e)
 
     # =========================
-    # KPIs TIME
+    # KPI TIME
     # =========================
     pct_t = final_t / 50
     pct_e = final_e / 20
@@ -124,27 +95,16 @@ if st.button("Calcular"):
     st.subheader("🎯 Metas do Time")
 
     st.markdown(f"""
-<div class="card">
-
-<div class="title">Transportadoras</div>
-<div class="value ok">{pct_t*100:.1f}%</div>
-
-<div class="title">Embarcadores</div>
-<div class="value ok">{pct_e*100:.1f}%</div>
-
-<div class="title">Progresso Geral</div>
-<div class="value ok">{media*100:.1f}%</div>
-
-<div class="title">Faixa Atual</div>
-<div class="value ok">{faixa_nome}</div>
-
-<div class="small">Bônus faixa: R$ {bonus_faixa}</div>
-
-</div>
-""", unsafe_allow_html=True)
+📦 Transportadoras: **{pct_t*100:.1f}%**  
+🚚 Embarcadores: **{pct_e*100:.1f}%**  
+📊 Total: **{media*100:.1f}%**  
+🏆 Faixa: **{faixa_nome}**  
+💰 Bônus faixa (time): **R$ {bonus_faixa}**  
+📈 Success Fee (time): **R$ {bonusSF}**
+""")
 
     # =========================
-    # INDIVIDUAL (SEM CORINGA)
+    # INDIVIDUAL (CORRETO)
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1),
@@ -152,67 +112,32 @@ if st.button("Calcular"):
         ("Outro", t3, e3)
     ]
 
-    df = []
+    st.subheader("💰 Resultado Individual (CORRETO)")
 
     for nome, t, e in pessoas:
 
         producao = t + e
         comissao = producao * 50
-        total = comissao + bonus_faixa + bonusSF
 
-        df.append([nome, producao, comissao, total])
-
-    df = pd.DataFrame(df, columns=["Pessoa","Produção","Comissão","Total"])
-
-    df_rank = df.sort_values("Produção", ascending=False)
-
-    st.subheader("🏆 Ranking de Produção")
-    st.dataframe(df_rank, use_container_width=True)
-
-    # =========================
-    # ALERTAS
-    # =========================
-    st.subheader("⚡ Faltam para Meta")
-
-    st.markdown(f"""
-<div class="card">
-
-<div class="title">Transportadoras</div>
-<div class="value">{max(0, 50 - final_t)}</div>
-
-<div class="title">Embarcadores</div>
-<div class="value">{max(0, 20 - final_e)}</div>
-
-</div>
-""", unsafe_allow_html=True)
-
-    # =========================
-    # RESULTADO INDIVIDUAL
-    # =========================
-    st.subheader("💰 Resultado Individual")
-
-    for nome, t, e in pessoas:
-
-        producao = t + e
-        comissao = producao * 50
-        total = comissao + bonus_faixa + bonusSF
+        # 👇 IMPORTANTE: só comissão individual
+        total = comissao
 
         st.markdown(f"""
-<div class="card">
+---
 
-<div class="title">{nome}</div>
+### {nome}
 
-<div class="value">{producao} contratos</div>
+📦 Produção: **{producao} contratos**  
+💰 Comissão: **R$ {comissao}**  
+🏆 Total individual: **R$ {total}**
+""")
 
-<div class="small">
-Comissão: R$ {comissao}<br>
-Bônus faixa: R$ {bonus_faixa}<br>
-Success Fee: R$ {bonusSF}
-</div>
+    # =========================
+    # RESUMO FINAL DO TIME
+    # =========================
+    st.subheader("🏁 Total do Time")
 
-<div class="value ok">
-Total: R$ {total}
-</div>
-
-</div>
-""", unsafe_allow_html=True)
+    st.markdown(f"""
+💰 Bônus faixa (time): **R$ {bonus_faixa}**  
+📈 Success fee (time): **R$ {bonusSF}**
+""")

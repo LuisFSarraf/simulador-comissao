@@ -1,15 +1,45 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import calendar
 from datetime import datetime
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
+# =========================
+# CSS (UI PREMIUM)
+# =========================
+st.markdown("""
+<style>
+.main {
+    background-color: #0f172a;
+    color: white;
+}
+
+.block-container {
+    padding-top: 2rem;
+}
+
+[data-testid="stMetric"] {
+    background-color: #1e293b;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+}
+
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0px 6px 20px rgba(0,0,0,0.4);
+    margin-bottom: 15px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📊 Dashboard Comercial - Simulador de Comissão")
 
 # =========================
-# BASE DE DADOS
+# BASE
 # =========================
 if "dados" not in st.session_state:
     st.session_state.dados = pd.DataFrame(columns=[
@@ -39,10 +69,10 @@ with col3:
 
 st.divider()
 
-sf = st.slider("📈 Success Fee (% da meta do time)", 0, 200, 0)
+sf = st.slider("📈 Success Fee (%)", 0, 200, 0)
 
 # =========================
-# SALVAR DADOS
+# SALVAR
 # =========================
 if st.button("💾 Salvar Dia"):
     hoje = datetime.now().strftime("%Y-%m-%d")
@@ -57,7 +87,7 @@ if st.button("💾 Salvar Dia"):
     st.success("Dados salvos!")
 
 # =========================
-# FUNÇÃO BONUS
+# BONUS
 # =========================
 def calcular_bonus(t, e, c):
     melhorBonus = 0
@@ -79,18 +109,17 @@ def calcular_bonus(t, e, c):
     return melhorBonus, melhorFaixa
 
 # =========================
-# BOTÃO CALCULAR
+# CALCULAR
 # =========================
 if st.button("🚀 Calcular"):
 
-    # Totais
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
     bonus, faixa = calcular_bonus(total_t, total_e, total_c)
 
-    # SUCCESS FEE
+    # Success Fee
     if sf >= 150:
         bonusSF = 500
         nivelSF = "150%"
@@ -104,109 +133,105 @@ if st.button("🚀 Calcular"):
         bonusSF = 0
         nivelSF = "Não atingido"
 
-    # INDIVIDUAL
-    def calc_ind(t, e, c):
-        base = (t + e + c) * 50
+    def calc_ind(t,e,c):
+        base = (t+e+c)*50
         total = base + bonus + bonusSF
-        return base, total
+        return base,total
 
-    base1, total1 = calc_ind(t1, e1, c1)
-    base2, total2 = calc_ind(t2, e2, c2)
-    base3, total3 = calc_ind(t3, e3, c3)
+    base1,total1 = calc_ind(t1,e1,c1)
+    base2,total2 = calc_ind(t2,e2,c2)
+    base3,total3 = calc_ind(t3,e3,c3)
 
     # =========================
-    # RESULTADO TIME
+    # KPIs
     # =========================
-    st.subheader("📊 Resultado do Time")
+    st.subheader("📊 Visão Geral")
 
-    colA, colB, colC = st.columns(3)
+    colA,colB,colC,colD = st.columns(4)
     colA.metric("Faixa", faixa)
     colB.metric("Transportadoras", total_t)
     colC.metric("Embarcadores", total_e)
+    colD.metric("Bônus", f"R$ {bonus}")
 
-    st.write(f"💰 Bônus Faixa: R$ {bonus}")
-    st.write(f"📈 Success Fee: {nivelSF} | R$ {bonus}")
+    st.write(f"📈 Success Fee: {nivelSF} | R$ {bonusSF}")
 
     st.divider()
-
-    # =========================
-    # INDIVIDUAL
-    # =========================
-    def mostrar(nome, t, e, c, base, total):
-        st.subheader(f"👤 {nome}")
-        st.write(f"Transportadoras: {t}")
-        st.write(f"Embarcadores: {e}")
-        st.write(f"Coringas: {c}")
-        st.write(f"Total contratos: {t+e+c}")
-        st.write(f"Comissão: R$ {base}")
-        st.write(f"Bônus Faixa: R$ {bonus}")
-        st.write(f"Success Fee: R$ {bonusSF}")
-        st.success(f"💰 Total: R$ {total}")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        mostrar("Luis Felipe", t1, e1, c1, base1, total1)
-    with col2:
-        mostrar("Fernando", t2, e2, c2, base2, total2)
-    with col3:
-        mostrar("Outro", t3, e3, c3, base3, total3)
 
     # =========================
     # RANKING
     # =========================
     ranking = pd.DataFrame({
-        "Pessoa": ["Luis Felipe","Fernando","Outro"],
-        "Contratos": [
-            t1 + e1 + c1,
-            t2 + e2 + c2,
-            t3 + e3 + c3
+        "Pessoa":["Luis Felipe","Fernando","Outro"],
+        "Contratos":[
+            t1+e1+c1,
+            t2+e2+c2,
+            t3+e3+c3
         ],
-        "Total": [total1, total2, total3]
-    }).sort_values("Contratos", ascending=False)
+        "Total":[total1,total2,total3]
+    }).sort_values("Contratos",ascending=False).reset_index(drop=True)
+
+    medalhas = ["🥇","🥈","🥉"]
+    ranking["Posição"] = [medalhas[i] for i in range(len(ranking))]
 
     st.subheader("🏆 Ranking")
     st.dataframe(ranking, use_container_width=True)
 
+    top = ranking.iloc[0]
+
+    st.markdown(f"""
+    <div class="card">
+        <h2>🔥 Top Performer</h2>
+        <h3>{top['Pessoa']}</h3>
+        <p>{top['Contratos']} contratos</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
     # =========================
     # GRÁFICOS
     # =========================
-    st.divider()
-    st.subheader("📊 Gráficos")
+    df_chart = pd.DataFrame({
+        "Pessoa":["Luis Felipe","Fernando","Outro"],
+        "Transportadoras":[t1,t2,t3],
+        "Embarcadores":[e1,e2,e3],
+        "Coringas":[c1,c2,c3]
+    })
 
-    st.plotly_chart(px.bar(ranking, x="Pessoa", y="Contratos"))
-    st.plotly_chart(px.pie(ranking, names="Pessoa", values="Contratos"))
+    df_melt = df_chart.melt(id_vars="Pessoa",
+                           var_name="Tipo",
+                           value_name="Qtd")
+
+    fig1 = px.bar(df_melt,x="Pessoa",y="Qtd",color="Tipo",barmode="stack")
+    fig1.update_layout(template="plotly_dark")
+
+    st.plotly_chart(fig1, use_container_width=True)
+
+    fig2 = px.bar(ranking,x="Pessoa",y="Contratos",text="Contratos")
+    fig2.update_layout(template="plotly_dark")
+
+    st.plotly_chart(fig2, use_container_width=True)
 
     # =========================
-    # META
+    # CARDS
     # =========================
-    st.divider()
-    st.subheader("🎯 Meta")
+    def card(nome,t,e,c,total):
+        st.markdown(f"""
+        <div class="card">
+        <h3>{nome}</h3>
+        <p>Contratos: {t+e+c}</p>
+        <p>💰 R$ {total}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    meta_t = 50
-    meta_e = 20
+    col1,col2,col3 = st.columns(3)
 
-    st.metric("Transportadoras", total_t, f"{int((total_t/meta_t)*100)}%")
-    st.metric("Embarcadores", total_e, f"{int((total_e/meta_e)*100)}%")
-
-    # =========================
-    # PREVISÃO
-    # =========================
-    if not st.session_state.dados.empty:
-
-        hoje = datetime.now()
-        dias_mes = calendar.monthrange(hoje.year, hoje.month)[1]
-
-        total_hist = (
-            st.session_state.dados["transportadora"].sum() +
-            st.session_state.dados["embarcador"].sum() +
-            st.session_state.dados["coringa"].sum()
-        )
-
-        media = total_hist / hoje.day
-        previsao = int(media * dias_mes)
-
-        st.metric("📉 Previsão do mês", previsao)
+    with col1:
+        card("Luis Felipe",t1,e1,c1,total1)
+    with col2:
+        card("Fernando",t2,e2,c2,total2)
+    with col3:
+        card("Outro",t3,e3,c3,total3)
 
 # =========================
 # HISTÓRICO

@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
 # =========================
-# ESTILO
+# CSS PADRÃO (CONSISTENTE NO APP)
 # =========================
 st.markdown("""
 <style>
@@ -13,7 +13,7 @@ st.markdown("""
     background:#1e293b;
     padding:18px;
     border-radius:14px;
-    margin-bottom:12px;
+    margin-bottom:14px;
 }
 
 .title {
@@ -59,7 +59,7 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# SUCCESS FEE (TIME)
+# SUCCESS FEE
 # =========================
 st.subheader("📈 Success Fee (Meta R$ 5.000)")
 
@@ -91,26 +91,21 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # =========================
-# CORINGA (SOMENTE REDISTRIBUIÇÃO)
+# CORINGA (AGORA PARTICIPA DA META)
 # =========================
 def aplicar_coringa(t, e, c):
-    """
-    Coringa NÃO impacta bônus nem meta.
-    Apenas redistribui contratos entre categorias.
-    """
 
-    melhor_t = t
-    melhor_e = e
+    faltam_t = max(0, 50 - t)
+    usados_t = min(c, faltam_t)
 
-    for i in range(c + 1):
-        t_temp = t + i
-        e_temp = e + (c - i)
+    faltam_e = max(0, 20 - e)
+    restantes = c - usados_t
+    usados_e = min(restantes, faltam_e)
 
-        if (t_temp + e_temp) >= (melhor_t + melhor_e):
-            melhor_t = t_temp
-            melhor_e = e_temp
+    final_t = t + usados_t
+    final_e = e + usados_e
 
-    return melhor_t, melhor_e
+    return final_t, final_e, usados_t, usados_e
 
 # =========================
 # EXECUÇÃO
@@ -122,11 +117,8 @@ if st.button("Calcular"):
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
-    # AJUSTE CORINGA (APENAS ORGANIZAÇÃO)
-    final_t, final_e = aplicar_coringa(total_t, total_e, total_c)
-
-    ut = final_t - total_t
-    ue = final_e - total_e
+    # CORINGAS AGORA AJUDAM NA META
+    final_t, final_e, ut, ue = aplicar_coringa(total_t, total_e, total_c)
 
     # =========================
     # FAIXA DO TIME
@@ -155,31 +147,31 @@ if st.button("Calcular"):
         return comissao(t, e, c) + bonus_faixa + bonusSF
 
     # =========================
-    # RESUMO TIME
+    # RESUMO TIME (MESMO PADRÃO VISUAL)
     # =========================
     st.subheader("🎯 Metas do Time")
 
     st.markdown(f"""
-    <div class="card">
-    <div class="title">Transportadoras</div>
-    <div class="value ok">{final_t} / 50</div>
+<div class="card">
+<div class="title">Transportadoras</div>
+<div class="value ok">{final_t} / 50</div>
 
-    <div class="title">Embarcadores</div>
-    <div class="value ok">{final_e} / 20</div>
+<div class="title">Embarcadores</div>
+<div class="value ok">{final_e} / 20</div>
 
-    <div class="title">Faixa</div>
-    <div class="value ok">{faixa}</div>
+<div class="title">Faixa</div>
+<div class="value ok">{faixa}</div>
 
-    <div class="small">Bônus faixa: R$ {bonus_faixa}</div>
+<div class="small">Bônus faixa: R$ {bonus_faixa}</div>
 
-    <div class="small">
-    Coringas (redistribuição): +{ut} / +{ue}
-    </div>
-    </div>
-    """, unsafe_allow_html=True)
+<div class="small">
+Coringas usados: {ut + ue} (aplicados na meta)
+</div>
+</div>
+""", unsafe_allow_html=True)
 
     # =========================
-    # RESULTADO INDIVIDUAL
+    # RESULTADO INDIVIDUAL (MESMO VISUAL DO APP)
     # =========================
     st.subheader("💰 Resultado Individual")
 
@@ -196,12 +188,20 @@ if st.button("Calcular"):
         total = total_individual(t, e, c)
 
         st.markdown(f"""
-### {nome}
+<div class="card">
+<div class="title">{nome}</div>
 
-- Contratos: **{contratos}**
-- Comissão: R$ {com}
-- Bônus faixa (time): R$ {bonus_faixa}
-- Success Fee (time): R$ {bonusSF}
+<div class="value">{contratos} contratos</div>
 
-💰 **Total: R$ {total}**
-""")
+<div class="small">
+💼 Comissão: R$ {com}<br>
+🏆 Bônus faixa: R$ {bonus_faixa}<br>
+📈 Success Fee: R$ {bonusSF}<br>
+🔁 Coringas pessoais: {c}
+</div>
+
+<div class="value ok">
+💰 Total: R$ {total}
+</div>
+</div>
+""", unsafe_allow_html=True)

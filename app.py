@@ -24,7 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Comercial - Metas e Comissão")
+st.title("📊 Painel Comercial - Metas & Comissão")
 
 # =========================
 # INPUTS
@@ -65,9 +65,10 @@ else:
     bonusSF = 0
 
 # =========================
-# CORINGA (SÓ META, NÃO VISUAL)
+# CORINGA (SÓ META - NÃO VISUAL)
 # =========================
 def aplicar_coringa(t, e, c):
+
     faltam_t = max(0, 50 - t)
     usados_t = min(c, faltam_t)
 
@@ -79,7 +80,7 @@ def aplicar_coringa(t, e, c):
     return t + usados_t, e + usados_e
 
 # =========================
-# FAIXA
+# FAIXA DO TIME
 # =========================
 def calcular_faixa(t, e):
 
@@ -103,7 +104,7 @@ def calcular_faixa(t, e):
 # =========================
 if st.button("Calcular"):
 
-    # TOTAL TIME
+    # TOTAL BRUTO
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
@@ -116,8 +117,8 @@ if st.button("Calcular"):
     # =========================
     # KPIs TIME
     # =========================
-    pct_t = (final_t / 50) * 100
-    pct_e = (final_e / 20) * 100
+    pct_t = final_t / 50
+    pct_e = final_e / 20
     media = (pct_t + pct_e) / 2
 
     st.subheader("🎯 Metas do Time")
@@ -126,16 +127,18 @@ if st.button("Calcular"):
 <div class="card">
 
 <div class="title">Transportadoras</div>
-<div class="value ok">{pct_t:.1f}%</div>
+<div class="value ok">{pct_t*100:.1f}%</div>
 
 <div class="title">Embarcadores</div>
-<div class="value ok">{pct_e:.1f}%</div>
+<div class="value ok">{pct_e*100:.1f}%</div>
 
 <div class="title">Progresso Geral</div>
-<div class="value ok">{media:.1f}%</div>
+<div class="value ok">{media*100:.1f}%</div>
 
 <div class="title">Faixa Atual</div>
 <div class="value ok">{faixa_nome}</div>
+
+<div class="small">Bônus faixa: R$ {bonus_faixa}</div>
 
 </div>
 """, unsafe_allow_html=True)
@@ -163,22 +166,21 @@ if st.button("Calcular"):
 
     df_rank = df.sort_values("Produção", ascending=False)
 
-    st.subheader("🏆 Ranking")
-
+    st.subheader("🏆 Ranking de Produção")
     st.dataframe(df_rank, use_container_width=True)
 
     # =========================
-    # ALERTA
+    # ALERTAS
     # =========================
-    st.subheader("⚡ Faltas para Meta")
+    st.subheader("⚡ Faltam para Meta")
 
     st.markdown(f"""
 <div class="card">
 
-<div class="title">Transportadoras faltando</div>
+<div class="title">Transportadoras</div>
 <div class="value">{max(0, 50 - final_t)}</div>
 
-<div class="title">Embarcadores faltando</div>
+<div class="title">Embarcadores</div>
 <div class="value">{max(0, 20 - final_e)}</div>
 
 </div>
@@ -200,7 +202,7 @@ if st.button("Calcular"):
 
 <div class="title">{nome}</div>
 
-<div class="value">{producao}</div>
+<div class="value">{producao} contratos</div>
 
 <div class="small">
 Comissão: R$ {comissao}<br>

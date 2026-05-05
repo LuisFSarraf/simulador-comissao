@@ -24,7 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Comercial - Comissão & Metas")
+st.title("📊 Painel Comercial - Comissão e Metas")
 
 # =========================
 # INPUTS
@@ -63,24 +63,24 @@ else:
     bonusSF = 0
 
 # =========================
-# REGRA DE CORINGA (HÍBRIDO)
+# HÍBRIDO (CORRETO)
 # =========================
 def aplicar_hibrido(t, e, h):
 
-    # primeiro completa transportadoras
-    faltam_t = max(0, 50 - t)
-    usados_t = min(h, faltam_t)
+    # primeiro cobre transportadoras
+    falta_t = max(0, 50 - t)
+    uso_t = min(h, falta_t)
 
-    restante = h - usados_t
+    h_restante = h - uso_t
 
-    # depois embarcadores
-    faltam_e = max(0, 20 - e)
-    usados_e = min(restante, faltam_e)
+    # depois cobre embarcadores
+    falta_e = max(0, 20 - e)
+    uso_e = min(h_restante, falta_e)
 
-    return t + usados_t, e + usados_e
+    return t + uso_t, e + uso_e
 
 # =========================
-# FAIXAS
+# FAIXAS (CORRIGIDO)
 # =========================
 def calcular_faixa(t, e):
 
@@ -112,7 +112,7 @@ if st.button("Calcular"):
     bonus_faixa, faixa_nome = calcular_faixa(final_t, final_e)
 
     # =========================
-    # COMISSÃO INDIVIDUAL
+    # INDIVIDUAL
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, h1),
@@ -156,7 +156,7 @@ Total: R$ {comissao}
 """, unsafe_allow_html=True)
 
     # =========================
-    # BÔNUS DO TIME
+    # BONUS TIME
     # =========================
     st.subheader("🏆 Bônus do Time")
 

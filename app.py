@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
 # =========================
-# CSS PADRÃO (CONSISTENTE NO APP)
+# ESTILO PADRÃO
 # =========================
 st.markdown("""
 <style>
@@ -98,8 +98,9 @@ def aplicar_coringa(t, e, c):
     faltam_t = max(0, 50 - t)
     usados_t = min(c, faltam_t)
 
-    faltam_e = max(0, 20 - e)
     restantes = c - usados_t
+
+    faltam_e = max(0, 20 - e)
     usados_e = min(restantes, faltam_e)
 
     final_t = t + usados_t
@@ -108,33 +109,44 @@ def aplicar_coringa(t, e, c):
     return final_t, final_e, usados_t, usados_e
 
 # =========================
+# FAIXA DO TIME (CORRIGIDA)
+# =========================
+def calcular_faixa(t, e):
+
+    pct_t = t / 50
+    pct_e = e / 20
+
+    media = (pct_t + pct_e) / 2
+
+    if pct_t >= 1 and pct_e >= 1:
+        return 1000, "Faixa 4"
+
+    elif media >= 0.9:
+        return 800, "Faixa 3"
+
+    elif media >= 0.75:
+        return 600, "Faixa 2"
+
+    elif media >= 0.5:
+        return 400, "Faixa 1"
+
+    else:
+        return 0, "Abaixo"
+
+# =========================
 # EXECUÇÃO
 # =========================
 if st.button("Calcular"):
 
-    # TOTAL BRUTO
+    # TOTAL TIME
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
-    # CORINGAS AGORA AJUDAM NA META
+    # CORINGA ENTRA NA META
     final_t, final_e, ut, ue = aplicar_coringa(total_t, total_e, total_c)
 
-    # =========================
     # FAIXA DO TIME
-    # =========================
-    def calcular_faixa(t, e):
-        if t >= 50 and e >= 20:
-            return 1000, "Faixa 4"
-        elif t >= 40 and e >= 16:
-            return 800, "Faixa 3"
-        elif t >= 30 and e >= 12:
-            return 600, "Faixa 2"
-        elif t >= 20 and e >= 8:
-            return 400, "Faixa 1"
-        else:
-            return 0, "Abaixo"
-
     bonus_faixa, faixa = calcular_faixa(final_t, final_e)
 
     # =========================
@@ -147,19 +159,23 @@ if st.button("Calcular"):
         return comissao(t, e, c) + bonus_faixa + bonusSF
 
     # =========================
-    # RESUMO TIME (MESMO PADRÃO VISUAL)
+    # RESUMO TIME
     # =========================
     st.subheader("🎯 Metas do Time")
 
+    pct_t = (final_t / 50) * 100
+    pct_e = (final_e / 20) * 100
+
     st.markdown(f"""
 <div class="card">
+
 <div class="title">Transportadoras</div>
-<div class="value ok">{final_t} / 50</div>
+<div class="value ok">{final_t} / 50 ({pct_t:.1f}%)</div>
 
 <div class="title">Embarcadores</div>
-<div class="value ok">{final_e} / 20</div>
+<div class="value ok">{final_e} / 20 ({pct_e:.1f}%)</div>
 
-<div class="title">Faixa</div>
+<div class="title">Faixa do Time</div>
 <div class="value ok">{faixa}</div>
 
 <div class="small">Bônus faixa: R$ {bonus_faixa}</div>
@@ -167,11 +183,12 @@ if st.button("Calcular"):
 <div class="small">
 Coringas usados: {ut + ue} (aplicados na meta)
 </div>
+
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
-    # RESULTADO INDIVIDUAL (MESMO VISUAL DO APP)
+    # RESULTADO INDIVIDUAL
     # =========================
     st.subheader("💰 Resultado Individual")
 
@@ -189,6 +206,7 @@ Coringas usados: {ut + ue} (aplicados na meta)
 
         st.markdown(f"""
 <div class="card">
+
 <div class="title">{nome}</div>
 
 <div class="value">{contratos} contratos</div>
@@ -203,5 +221,6 @@ Coringas usados: {ut + ue} (aplicados na meta)
 <div class="value ok">
 💰 Total: R$ {total}
 </div>
+
 </div>
 """, unsafe_allow_html=True)

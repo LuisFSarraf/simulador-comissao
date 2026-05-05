@@ -22,11 +22,10 @@ st.markdown("""
 .value {font-size:28px;font-weight:bold;}
 .small {font-size:14px;opacity:0.85;}
 .ok {color:#3b82f6;}
-.warn {color:#f59e0b;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 SaaS Comercial - Performance & Bônus")
+st.title("📊 SaaS Comercial - Performance Inteligente")
 
 # =========================
 # INPUTS
@@ -65,16 +64,19 @@ def calc_sf(sf):
 bonusSF, nivelSF = calc_sf(sf)
 
 # =========================
-# CORINGA + FAIXA (ESTADO ÚNICO)
+# CORINGA AUTOMÁTICO
 # =========================
-def aplicar(t, e, c):
+def aplicar_coringa(t, e, c):
 
     uso_t = min(c, max(0, 50 - t))
-    c_restante = c - uso_t
-    uso_e = min(c_restante, max(0, 20 - e))
+    resto = c - uso_t
+    uso_e = min(resto, max(0, 20 - e))
 
-    return t + uso_t, e + uso_e
+    return t + uso_t, e + uso_e, c
 
+# =========================
+# FAIXA
+# =========================
 def faixa(t, e):
 
     if t >= 50 and e >= 20:
@@ -94,13 +96,13 @@ def faixa(t, e):
 if st.button("🚀 Calcular"):
 
     # =========================
-    # TOTAL
+    # TIME
     # =========================
     t_total = t1 + t2 + t3
     e_total = e1 + e2 + e3
     c_total = c1 + c2 + c3
 
-    t_final, e_final = aplicar(t_total, e_total, c_total)
+    t_final, e_final, c_usado = aplicar_coringa(t_total, e_total, c_total)
 
     bonus, faixa_nome, target = faixa(t_final, e_final)
 
@@ -108,7 +110,7 @@ if st.button("🚀 Calcular"):
     falta_e = max(0, target[1] - e_final)
 
     # =========================
-    # COMISSÃO INDIVIDUAL (CORRETO)
+    # INDIVIDUAL
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, c1),
@@ -122,13 +124,14 @@ if st.button("🚀 Calcular"):
 
     for nome, t, e, c in pessoas:
 
-        contratos = t + e
+        contratos = t + e + c
         comissao = contratos * 50
 
         df.append([nome, t, e, c, contratos, comissao])
 
         st.markdown(f"""
 <div class="card">
+
 <div class="title">{nome}</div>
 
 <div class="value">{contratos} contratos</div>
@@ -140,6 +143,7 @@ if st.button("🚀 Calcular"):
 </div>
 
 <div class="value ok">R$ {comissao}</div>
+
 </div>
 """, unsafe_allow_html=True)
 
@@ -165,15 +169,14 @@ if st.button("🚀 Calcular"):
     st.write(f"Faltam {falta_t} Transportadoras")
     st.write(f"Faltam {falta_e} Embarcadores")
 
-    progress = (t_final + e_final) / (target[0] + target[1])
-    st.progress(min(progress,1.0))
+    st.progress(min((t_final + e_final) / (target[0] + target[1]), 1.0))
 
     # =========================
     # RANKING
     # =========================
     ranking = pd.DataFrame({
         "Pessoa":[p[0] for p in pessoas],
-        "Contratos":[p[1]+p[2] for p in pessoas]
+        "Contratos":[p[1]+p[2]+p[3] for p in pessoas]
     }).sort_values("Contratos", ascending=False)
 
     st.subheader("🏆 Ranking")

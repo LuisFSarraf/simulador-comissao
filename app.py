@@ -1,199 +1,147 @@
-
-import streamlit as st
-import pandas as pd
-from datetime import datetime
-
-st.set_page_config(page_title="Dashboard Comercial", layout="wide")
-
 # =========================
-# BASE DE DADOS (SESSÃO)
+# BI COMPLETO
 # =========================
-if "dados" not in st.session_state:
-    st.session_state.dados = pd.DataFrame(columns=[
-        "data", "pessoa", "transportadora", "embarcador", "coringa"
-    ])
-
-st.title("📊 Dashboard Comercial - Simulador de Comissão")
-
-# =========================
-# INPUTS
-# =========================
-col1, col2, col3 = st.columns(3)
-
-def input_user(nome):
-    st.subheader(f"👤 {nome}")
-    t = st.number_input(f"Transportadoras - {nome}", 0)
-    e = st.number_input(f"Embarcadores - {nome}", 0)
-    c = st.number_input(f"Coringas - {nome}", 0)
-    return t, e, c
-
-with col1:
-    t1, e1, c1 = input_user("Luis Felipe")
-
-with col2:
-    t2, e2, c2 = input_user("Fernando")
-
-with col3:
-    t3, e3, c3 = input_user("Outro")
 
 st.divider()
+st.subheader("📊 Inteligência Comercial")
 
-sf = st.slider("📈 Success Fee (% da meta do time)", 0, 200, 0)
+# -------------------------
+# GRÁFICO BARRA
+# -------------------------
+fig_bar = px.bar(
+    ranking,
+    x="Pessoa",
+    y="Contratos",
+    text="Contratos",
+    title="📊 Contratos por Pessoa"
+)
+st.plotly_chart(fig_bar, use_container_width=True)
 
-# =========================
-# SALVAR DADOS
-# =========================
-if st.button("💾 Salvar Dia"):
-    hoje = datetime.now().strftime("%Y-%m-%d")
+# -------------------------
+# GRÁFICO PIZZA
+# -------------------------
+fig_pie = px.pie(
+    ranking,
+    names="Pessoa",
+    values="Contratos",
+    title="📌 Distribuição de Contratos"
+)
+st.plotly_chart(fig_pie, use_container_width=True)
 
-    novos = pd.DataFrame([
-        [hoje, "Luis Felipe", t1, e1, c1],
-        [hoje, "Fernando", t2, e2, c2],
-        [hoje, "Outro", t3, e3, c3],
-    ], columns=["data", "pessoa", "transportadora", "embarcador", "coringa"])
+# -------------------------
+# EVOLUÇÃO
+# -------------------------
+if not st.session_state.dados.empty:
 
-    st.session_state.dados = pd.concat([st.session_state.dados, novos])
-    st.success("Dados salvos!")
+    df_hist = st.session_state.dados.copy()
 
-# =========================
-# CÁLCULO BONUS FAIXA
-# =========================
-def calcular_bonus(t, e, c):
-    melhorBonus = 0
-    melhorFaixa = "Abaixo da meta"
+    df_hist["total"] = (
+        df_hist["transportadora"] +
+        df_hist["embarcador"] +
+        df_hist["coringa"]
+    )
 
-    for i in range(c+1):
-        tF = t + i
-        eF = e + (c - i)
+    evolucao = df_hist.groupby(["data", "pessoa"])["total"].sum().reset_index()
 
-        if tF >= 50 and eF >= 20:
-            return 1000, "Faixa 4"
-        elif tF >= 40 and eF >= 16:
-            melhorBonus, melhorFaixa = 800, "Faixa 3"
-        elif tF >= 30 and eF >= 12:
-            melhorBonus, melhorFaixa = 600, "Faixa 2"
-        elif tF >= 20 and eF >= 8:
-            melhorBonus, melhorFaixa = 400, "Faixa 1"
+    fig_line = px.line(
+        evolucao,
+        x="data",
+        y="total",
+        color="pessoa",
+        markers=True,
+        title="📈 Evolução de Contratos"
+    )
 
-    return melhorBonus, melhorFaixa
+    st.plotly_chart(fig_line, use_container_width=True)
 
-# =========================
-# CALCULAR
-# =========================
-if st.button("🚀 Calcular"):
-
-    # Totais time
-    t = t1 + t2 + t3
-    e = e1 + e2 + e3
-    c = c1 + c2 + c3
-
-    bonus, faixa = calcular_bonus(t, e, c)
-
-    # SUCCESS FEE
-    if sf >= 150:
-        bonusSF = 500
-        nivelSF = "150%"
-    elif sf >= 120:
-        bonusSF = 300
-        nivelSF = "120%"
-    elif sf >= 100:
-        bonusSF = 200
-        nivelSF = "100%"
-    else:
-        bonusSF = 0
-        nivelSF = "Não atingido"
-
-    # CÁLCULO INDIVIDUAL
-    def calc_ind(t, e, c):
-        base = (t + e + c) * 50
-        total = base + bonus + bonusSF
-        return base, total
-
-    base1, total1 = calc_ind(t1, e1, c1)
-    base2, total2 = calc_ind(t2, e2, c2)
-    base3, total3 = calc_ind(t3, e3, c3)
-
-    # =========================
-    # RESULTADO TIME
-    # =========================
-    st.subheader("📊 Resultado do Time")
-
-    colA, colB, colC = st.columns(3)
-    colA.metric("Faixa", faixa)
-    colB.metric("Transportadoras", t)
-    colC.metric("Embarcadores", e)
-
-    st.write(f"💰 Bônus Faixa (por pessoa): R$ {bonus}")
-    st.write(f"📈 Success Fee: {nivelSF} | R$ {bonusSF} por pessoa")
-
-    st.divider()
-
-    # =========================
-    # RESULTADO INDIVIDUAL
-    # =========================
-    def mostrar(nome, t, e, c, base, total):
-        st.subheader(f"👤 {nome}")
-        st.write(f"Transportadoras: {t}")
-        st.write(f"Embarcadores: {e}")
-        st.write(f"Coringas: {c}")
-        st.write(f"Total de contratos: {t+e+c}")
-        st.write(f"Comissão: R$ {base}")
-        st.write(f"Bônus Faixa: R$ {bonus}")
-        st.write(f"Success Fee: R$ {bonusSF}")
-        st.success(f"💰 Total: R$ {total}")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        mostrar("Luis Felipe", t1, e1, c1, base1, total1)
-
-    with col2:
-        mostrar("Fernando", t2, e2, c2, base2, total2)
-
-    with col3:
-        mostrar("Outro", t3, e3, c3, base3, total3)
-
-    # =========================
-    # RANKING AVANÇADO
-    # =========================
-    st.divider()
-    st.subheader("🏆 Ranking de Performance")
-
-    ranking = pd.DataFrame({
-        "Pessoa": ["Luis Felipe","Fernando","Outro"],
-        "Contratos": [
-            t1 + e1 + c1,
-            t2 + e2 + c2,
-            t3 + e3 + c3
-        ],
-        "Total (R$)": [total1, total2, total3]
-    })
-
-    ranking = ranking.sort_values("Contratos", ascending=False).reset_index(drop=True)
-
-    medalhas = ["🥇", "🥈", "🥉"]
-    ranking["Posição"] = [medalhas[i] if i < 3 else "" for i in range(len(ranking))]
-
-    ranking = ranking[["Posição", "Pessoa", "Contratos", "Total (R$)"]]
-
-    st.dataframe(ranking, use_container_width=True)
-
-    # Top performer
-    top = ranking.iloc[0]
-    st.success(f"🔥 Top Performer: {top['Pessoa']} com {top['Contratos']} contratos")
-
-    # Alerta
-    media = ranking["Contratos"].mean()
-    abaixo = ranking[ranking["Contratos"] < media]
-
-    if not abaixo.empty:
-        nomes = ", ".join(abaixo["Pessoa"])
-        st.warning(f"⚠️ Abaixo da média: {nomes}")
-
-# =========================
-# HISTÓRICO
-# =========================
+# -------------------------
+# META vs REALIZADO
+# -------------------------
 st.divider()
-st.subheader("📅 Histórico")
+st.subheader("🎯 Meta vs Realizado")
 
-st.dataframe(st.session_state.dados, use_container_width=True)
+meta_transportadora = 50
+meta_embarcador = 20
+
+total_transportadora = t1 + t2 + t3
+total_embarcador = e1 + e2 + e3
+
+col1, col2 = st.columns(2)
+
+col1.metric(
+    "Transportadoras",
+    total_transportadora,
+    f"{round((total_transportadora/meta_transportadora)*100)}%"
+)
+
+col2.metric(
+    "Embarcadores",
+    total_embarcador,
+    f"{round((total_embarcador/meta_embarcador)*100)}%"
+)
+
+# -------------------------
+# FALTANTE PRA PRÓXIMA FAIXA
+# -------------------------
+st.divider()
+st.subheader("🔥 Próxima Faixa")
+
+faixas = [
+    ("Faixa 4", 50, 20),
+    ("Faixa 3", 40, 16),
+    ("Faixa 2", 30, 12),
+    ("Faixa 1", 20, 8)
+]
+
+proxima = None
+
+for nome, t_req, e_req in faixas:
+    if total_transportadora < t_req or total_embarcador < e_req:
+        proxima = (nome, t_req, e_req)
+        break
+
+if proxima:
+    nome, t_req, e_req = proxima
+
+    falta_t = max(0, t_req - total_transportadora)
+    falta_e = max(0, e_req - total_embarcador)
+
+    st.warning(f"Faltam {falta_t} Transportadoras e {falta_e} Embarcadores para {nome}")
+else:
+    st.success("🔥 Meta máxima atingida!")
+
+# -------------------------
+# PREVISÃO DO MÊS
+# -------------------------
+st.divider()
+st.subheader("📉 Previsão do Mês")
+
+if not st.session_state.dados.empty:
+
+    hoje = datetime.now()
+    dias_no_mes = calendar.monthrange(hoje.year, hoje.month)[1]
+    dia_atual = hoje.day
+
+    total_contratos = (
+        st.session_state.dados["transportadora"].sum() +
+        st.session_state.dados["embarcador"].sum() +
+        st.session_state.dados["coringa"].sum()
+    )
+
+    media_dia = total_contratos / dia_atual
+    previsao = int(media_dia * dias_no_mes)
+
+    st.metric("Previsão de contratos no mês", previsao)
+
+# -------------------------
+# PROJEÇÃO DE COMISSÃO
+# -------------------------
+st.divider()
+st.subheader("💰 Projeção de Comissão")
+
+contratos_atuais = total_transportadora + total_embarcador + (c1+c2+c3)
+
+valor_base = contratos_atuais * 50
+projecao_total = valor_base + bonus + bonusSF
+
+st.metric("Comissão estimada atual", f"R$ {projecao_total}")

@@ -3,7 +3,28 @@ import pandas as pd
 
 st.set_page_config(page_title="Painel Comercial", layout="wide")
 
-st.title("📊 Painel Comercial - CORRIGIDO")
+# =========================
+# VISUAL (mantido SaaS)
+# =========================
+st.markdown("""
+<style>
+.main {background-color:#0f172a;color:white;}
+
+.card {
+    background:#1e293b;
+    padding:18px;
+    border-radius:14px;
+    margin-bottom:14px;
+}
+
+.title {font-size:18px;font-weight:600;}
+.value {font-size:28px;font-weight:bold;}
+.small {font-size:14px;opacity:0.85;}
+.ok {color:#3b82f6;}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Painel Comercial - Metas & Comissão")
 
 # =========================
 # INPUTS
@@ -39,7 +60,7 @@ else:
     bonusSF = 0
 
 # =========================
-# CORINGA
+# CORINGA (SÓ META)
 # =========================
 def aplicar_coringa(t, e, c):
 
@@ -54,7 +75,7 @@ def aplicar_coringa(t, e, c):
     return t + usados_t, e + usados_e
 
 # =========================
-# FAIXA DO TIME
+# FAIXA
 # =========================
 def faixa(t, e):
 
@@ -76,7 +97,7 @@ def faixa(t, e):
 # =========================
 if st.button("Calcular"):
 
-    # TIME TOTAL
+    # TOTAL TIME
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
@@ -85,23 +106,35 @@ if st.button("Calcular"):
 
     bonus_faixa, faixa_nome = faixa(final_t, final_e)
 
-    # =========================
-    # KPI TIME
-    # =========================
     pct_t = final_t / 50
     pct_e = final_e / 20
     media = (pct_t + pct_e) / 2
 
+    # =========================
+    # META TIME (VISUAL ORIGINAL)
+    # =========================
     st.subheader("🎯 Metas do Time")
 
     st.markdown(f"""
-📦 Transportadoras: **{pct_t*100:.1f}%**  
-🚚 Embarcadores: **{pct_e*100:.1f}%**  
-📊 Total: **{media*100:.1f}%**  
-🏆 Faixa: **{faixa_nome}**  
-💰 Bônus faixa (time): **R$ {bonus_faixa}**  
-📈 Success Fee (time): **R$ {bonusSF}**
-""")
+<div class="card">
+
+<div class="title">Transportadoras</div>
+<div class="value ok">{pct_t*100:.1f}%</div>
+
+<div class="title">Embarcadores</div>
+<div class="value ok">{pct_e*100:.1f}%</div>
+
+<div class="title">Progresso Geral</div>
+<div class="value ok">{media*100:.1f}%</div>
+
+<div class="title">Faixa Atual</div>
+<div class="value ok">{faixa_nome}</div>
+
+<div class="small">Bônus faixa: R$ {bonus_faixa}</div>
+<div class="small">Success Fee: R$ {bonusSF}</div>
+
+</div>
+""", unsafe_allow_html=True)
 
     # =========================
     # INDIVIDUAL (CORRETO)
@@ -112,32 +145,27 @@ if st.button("Calcular"):
         ("Outro", t3, e3)
     ]
 
-    st.subheader("💰 Resultado Individual (CORRETO)")
+    st.subheader("💰 Resultado Individual")
 
     for nome, t, e in pessoas:
 
         producao = t + e
-        comissao = producao * 50
-
-        # 👇 IMPORTANTE: só comissão individual
-        total = comissao
+        comissao = producao * 50  # SOMENTE PRODUÇÃO REAL
 
         st.markdown(f"""
----
+<div class="card">
 
-### {nome}
+<div class="title">{nome}</div>
 
-📦 Produção: **{producao} contratos**  
-💰 Comissão: **R$ {comissao}**  
-🏆 Total individual: **R$ {total}**
-""")
+<div class="value">{producao} contratos</div>
 
-    # =========================
-    # RESUMO FINAL DO TIME
-    # =========================
-    st.subheader("🏁 Total do Time")
+<div class="small">
+Comissão: R$ {comissao}
+</div>
 
-    st.markdown(f"""
-💰 Bônus faixa (time): **R$ {bonus_faixa}**  
-📈 Success fee (time): **R$ {bonusSF}**
-""")
+<div class="value ok">
+Total: R$ {comissao}
+</div>
+
+</div>
+""", unsafe_allow_html=True)

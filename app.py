@@ -24,7 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Comercial - Comissão e Metas")
+st.title("📊 Painel Comercial - Comissão & Performance")
 
 # =========================
 # INPUTS
@@ -67,33 +67,41 @@ else:
 # =========================
 def aplicar_hibrido(t, e, h):
 
-    # primeiro cobre transportadoras
+    # completa transportadoras primeiro
     falta_t = max(0, 50 - t)
     uso_t = min(h, falta_t)
 
     h_restante = h - uso_t
 
-    # depois cobre embarcadores
+    # depois embarcadores
     falta_e = max(0, 20 - e)
     uso_e = min(h_restante, falta_e)
 
     return t + uso_t, e + uso_e
 
 # =========================
-# FAIXAS (CORRIGIDO)
+# FAIXAS (CORRIGIDO DEFINITIVO)
 # =========================
 def calcular_faixa(t, e):
 
-    if t >= 50 and e >= 20:
-        return 1000, "Faixa 4"
-    elif t >= 40 and e >= 16:
-        return 800, "Faixa 3"
-    elif t >= 30 and e >= 12:
-        return 600, "Faixa 2"
-    elif t >= 20 and e >= 8:
-        return 400, "Faixa 1"
-    else:
-        return 0, "Sem faixa"
+    faixas = [
+        (20, 8, 400, "Faixa 1"),
+        (30, 12, 600, "Faixa 2"),
+        (40, 16, 800, "Faixa 3"),
+        (50, 20, 1000, "Faixa 4")
+    ]
+
+    bonus = 0
+    nome = "Sem faixa"
+
+    for req_t, req_e, valor, label in faixas:
+        if t >= req_t and e >= req_e:
+            bonus = valor
+            nome = label
+        else:
+            break
+
+    return bonus, nome
 
 # =========================
 # EXECUÇÃO
@@ -112,7 +120,7 @@ if st.button("Calcular"):
     bonus_faixa, faixa_nome = calcular_faixa(final_t, final_e)
 
     # =========================
-    # INDIVIDUAL
+    # COMISSÃO INDIVIDUAL
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, h1),
@@ -156,7 +164,7 @@ Total: R$ {comissao}
 """, unsafe_allow_html=True)
 
     # =========================
-    # BONUS TIME
+    # BÔNUS DO TIME
     # =========================
     st.subheader("🏆 Bônus do Time")
 

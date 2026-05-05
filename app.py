@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
 # =========================
-# CSS PROFISSIONAL LIMPO
+# CSS PROFISSIONAL
 # =========================
 st.markdown("""
 <style>
@@ -39,7 +39,7 @@ st.markdown("""
 
 .ok {color:#3b82f6;}     /* azul */
 .warn {color:#60a5fa;}   /* azul claro */
-.bad {color:#ef4444;}    /* vermelho (só quando necessário) */
+.bad {color:#ef4444;}    /* vermelho só se necessário */
 </style>
 """, unsafe_allow_html=True)
 
@@ -66,8 +66,6 @@ with col2:
 with col3:
     t3, e3, c3 = input_user("Outro")
 
-sf = st.slider("📈 Success Fee (%)", 0, 200, 0)
-
 # =========================
 # CORINGA INTELIGENTE
 # =========================
@@ -93,7 +91,7 @@ def calcular_melhor_cenario(t, e, c):
     return melhor_bonus, melhor_faixa, usado_t, usado_e
 
 # =========================
-# CALCULO PRINCIPAL
+# CALCULAR
 # =========================
 if st.button("Calcular"):
 
@@ -106,15 +104,44 @@ if st.button("Calcular"):
     final_t = total_t + usado_t
     final_e = total_e + usado_e
 
-    # SUCCESS FEE
-    if sf >= 150:
+    # =========================
+    # SUCCESS FEE (NOVA REGRA)
+    # =========================
+    st.subheader("📈 Success Fee (Meta R$ 5.000)")
+
+    sf_valor = st.number_input("Valor transacionado no mês (R$)", 0)
+    meta_sf = 5000
+
+    sf_percent = min(100, int((sf_valor / meta_sf) * 100))
+
+    if sf_percent >= 150:
         bonusSF = 500
-    elif sf >= 120:
+        faixa_sf = "150% (Excelência)"
+    elif sf_percent >= 120:
         bonusSF = 300
-    elif sf >= 100:
+        faixa_sf = "120% (Superação)"
+    elif sf_percent >= 100:
         bonusSF = 200
+        faixa_sf = "100% (Meta atingida)"
     else:
         bonusSF = 0
+        faixa_sf = "Abaixo da meta"
+
+    st.markdown(f"""
+    <div class="card">
+        <div class="title">Success Fee</div>
+
+        <div class="value ok">R$ {sf_valor}</div>
+
+        <div class="small">Meta: R$ {meta_sf}</div>
+
+        <div class="value">{sf_percent}% atingido</div>
+
+        <div class="small">{faixa_sf}</div>
+
+        <div class="small">Bônus: R$ {bonusSF}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # =========================
     # KPIs METAS
@@ -122,7 +149,7 @@ if st.button("Calcular"):
     st.subheader("🎯 Metas do Time")
 
     def percent(atual, meta):
-        return min(100, int((atual/meta)*100)) if meta > 0 else 0
+        return min(100, int((atual/meta)*100))
 
     colA, colB, colC = st.columns(3)
 
@@ -153,38 +180,21 @@ if st.button("Calcular"):
     </div>
     """, unsafe_allow_html=True)
 
+    # =========================
+    # CORINGAS
+    # =========================
     st.markdown(f"""
     <div class="card">
-    <div class="title">Uso de Coringas</div>
-    <div class="small">
-    ➜ +{usado_t} Transportadoras<br>
-    ➜ +{usado_e} Embarcadores
-    </div>
+        <div class="title">Uso dos Coringas</div>
+        <div class="small">
+        ➜ +{usado_t} Transportadoras<br>
+        ➜ +{usado_e} Embarcadores
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     # =========================
-    # RANKING
-    # =========================
-    ranking = pd.DataFrame({
-        "Pessoa": ["Luis Felipe","Fernando","Outro"],
-        "Contratos": [
-            t1 + e1 + c1,
-            t2 + e2 + c2,
-            t3 + e3 + c3
-        ]
-    }).sort_values("Contratos", ascending=False)
-
-    st.subheader("🏆 Ranking")
-
-    st.dataframe(ranking, use_container_width=True)
-
-    top = ranking.iloc[0]
-
-    st.success(f"🔥 Top Performer: {top['Pessoa']}")
-
-    # =========================
-    # RESULTADO INDIVIDUAL
+    # RESULTADO INDIVIDUAL (CORRIGIDO)
     # =========================
     st.subheader("💰 Resultado Individual")
 

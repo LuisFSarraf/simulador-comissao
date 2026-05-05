@@ -24,7 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Comercial - Comissão & Performance")
+st.title("📊 Painel Comercial - Performance Completa")
 
 # =========================
 # INPUTS
@@ -63,45 +63,31 @@ else:
     bonusSF = 0
 
 # =========================
-# HÍBRIDO (CORRETO)
+# HÍBRIDO
 # =========================
 def aplicar_hibrido(t, e, h):
 
-    # completa transportadoras primeiro
-    falta_t = max(0, 50 - t)
-    uso_t = min(h, falta_t)
-
+    uso_t = min(h, max(0, 50 - t))
     h_restante = h - uso_t
-
-    # depois embarcadores
-    falta_e = max(0, 20 - e)
-    uso_e = min(h_restante, falta_e)
+    uso_e = min(h_restante, max(0, 20 - e))
 
     return t + uso_t, e + uso_e
 
 # =========================
-# FAIXAS (CORRIGIDO DEFINITIVO)
+# FAIXAS (CORRETO)
 # =========================
 def calcular_faixa(t, e):
 
-    faixas = [
-        (20, 8, 400, "Faixa 1"),
-        (30, 12, 600, "Faixa 2"),
-        (40, 16, 800, "Faixa 3"),
-        (50, 20, 1000, "Faixa 4")
-    ]
-
-    bonus = 0
-    nome = "Sem faixa"
-
-    for req_t, req_e, valor, label in faixas:
-        if t >= req_t and e >= req_e:
-            bonus = valor
-            nome = label
-        else:
-            break
-
-    return bonus, nome
+    if t >= 50 and e >= 20:
+        return 1000, "Faixa 4"
+    elif t >= 40 and e >= 16:
+        return 800, "Faixa 3"
+    elif t >= 30 and e >= 12:
+        return 600, "Faixa 2"
+    elif t >= 20 and e >= 8:
+        return 400, "Faixa 1"
+    else:
+        return 0, "Sem faixa"
 
 # =========================
 # EXECUÇÃO
@@ -109,7 +95,7 @@ def calcular_faixa(t, e):
 if st.button("Calcular"):
 
     # =========================
-    # TOTAL TIME
+    # TIME
     # =========================
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
@@ -120,7 +106,7 @@ if st.button("Calcular"):
     bonus_faixa, faixa_nome = calcular_faixa(final_t, final_e)
 
     # =========================
-    # COMISSÃO INDIVIDUAL
+    # INDIVIDUAL (CORRIGIDO E DISCRIMINADO)
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, h1),
@@ -128,7 +114,7 @@ if st.button("Calcular"):
         ("Outro", t3, e3, h3)
     ]
 
-    st.subheader("💰 Comissão Individual")
+    st.subheader("💰 Resultado Individual Detalhado")
 
     df = []
 
@@ -137,7 +123,14 @@ if st.button("Calcular"):
         producao = t + e + h
         comissao = producao * 50
 
-        df.append([nome, t, e, h, producao, comissao])
+        df.append([
+            nome,
+            t,
+            e,
+            h,
+            producao,
+            comissao
+        ])
 
         st.markdown(f"""
 <div class="card">
@@ -147,24 +140,20 @@ if st.button("Calcular"):
 <div class="value">{producao} contratos</div>
 
 <div class="small">
-Transportadoras: {t}<br>
-Embarcadores: {e}<br>
-Híbridos: {h}
+🚚 Transportadoras: {t}<br>
+📦 Embarcadores: {e}<br>
+🔁 Híbridos: {h}
 </div>
 
 <div class="small">
-Comissão: R$ {comissao}
-</div>
-
-<div class="value ok">
-Total: R$ {comissao}
+💰 Comissão: R$ {comissao}
 </div>
 
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
-    # BÔNUS DO TIME
+    # TIME
     # =========================
     st.subheader("🏆 Bônus do Time")
 
@@ -187,7 +176,7 @@ Total: R$ {comissao}
 """, unsafe_allow_html=True)
 
     # =========================
-    # RESUMO
+    # TABELA
     # =========================
     df = pd.DataFrame(df, columns=[
         "Pessoa",
@@ -198,5 +187,5 @@ Total: R$ {comissao}
         "Comissão"
     ])
 
-    st.subheader("📊 Resumo Geral")
+    st.subheader("📊 Visão Analítica")
     st.dataframe(df, use_container_width=True)

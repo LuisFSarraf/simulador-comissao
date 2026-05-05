@@ -24,7 +24,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Painel Comercial Completo")
+st.title("📊 Painel Comercial - Comissão & Metas")
 
 # =========================
 # INPUTS
@@ -35,59 +35,62 @@ def input_user(nome):
     st.subheader(nome)
     t = st.number_input(f"Transportadoras - {nome}", 0)
     e = st.number_input(f"Embarcadores - {nome}", 0)
-    c = st.number_input(f"Coringas - {nome}", 0)
-    return t, e, c
+    h = st.number_input(f"Híbridos - {nome}", 0)
+    return t, e, h
 
 with col1:
-    t1, e1, c1 = input_user("Luis Felipe")
+    t1, e1, h1 = input_user("Luis Felipe")
 with col2:
-    t2, e2, c2 = input_user("Fernando")
+    t2, e2, h2 = input_user("Fernando")
 with col3:
-    t3, e3, c3 = input_user("Outro")
+    t3, e3, h3 = input_user("Outro")
 
 # =========================
-# SUCCESS FEE (TIME)
+# SUCCESS FEE
 # =========================
-sf_valor = st.number_input("Success Fee (R$)", 0)
+sf_valor = st.number_input("Valor transacionado (R$)", 0)
+meta_sf = 5000
 
-if sf_valor >= 7500:
+sf_pct = sf_valor / meta_sf if meta_sf else 0
+
+if sf_pct >= 1.5:
     bonusSF = 500
-elif sf_valor >= 6000:
+elif sf_pct >= 1.2:
     bonusSF = 300
-elif sf_valor >= 5000:
+elif sf_pct >= 1.0:
     bonusSF = 200
 else:
     bonusSF = 0
 
 # =========================
-# CORINGA (AJUDA META)
+# REGRA DE CORINGA (HÍBRIDO)
 # =========================
-def aplicar_coringa(t, e, c):
+def aplicar_hibrido(t, e, h):
 
+    # primeiro completa transportadoras
     faltam_t = max(0, 50 - t)
-    usados_t = min(c, faltam_t)
+    usados_t = min(h, faltam_t)
 
-    restante = c - usados_t
+    restante = h - usados_t
 
+    # depois embarcadores
     faltam_e = max(0, 20 - e)
     usados_e = min(restante, faltam_e)
 
     return t + usados_t, e + usados_e
 
 # =========================
-# FAIXA (TIME)
+# FAIXAS
 # =========================
 def calcular_faixa(t, e):
 
-    pct = (t/50 + e/20) / 2
-
-    if pct >= 1:
+    if t >= 50 and e >= 20:
         return 1000, "Faixa 4"
-    elif pct >= 0.9:
+    elif t >= 40 and e >= 16:
         return 800, "Faixa 3"
-    elif pct >= 0.75:
+    elif t >= 30 and e >= 12:
         return 600, "Faixa 2"
-    elif pct >= 0.5:
+    elif t >= 20 and e >= 8:
         return 400, "Faixa 1"
     else:
         return 0, "Sem faixa"
@@ -98,35 +101,35 @@ def calcular_faixa(t, e):
 if st.button("Calcular"):
 
     # =========================
-    # TIME TOTAL
+    # TOTAL TIME
     # =========================
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
-    total_c = c1 + c2 + c3
+    total_h = h1 + h2 + h3
 
-    final_t, final_e = aplicar_coringa(total_t, total_e, total_c)
+    final_t, final_e = aplicar_hibrido(total_t, total_e, total_h)
 
     bonus_faixa, faixa_nome = calcular_faixa(final_t, final_e)
 
     # =========================
-    # INDIVIDUAL
+    # COMISSÃO INDIVIDUAL
     # =========================
     pessoas = [
-        ("Luis Felipe", t1, e1),
-        ("Fernando", t2, e2),
-        ("Outro", t3, e3)
+        ("Luis Felipe", t1, e1, h1),
+        ("Fernando", t2, e2, h2),
+        ("Outro", t3, e3, h3)
     ]
 
-    st.subheader("💰 Resultado Individual")
+    st.subheader("💰 Comissão Individual")
 
     df = []
 
-    for nome, t, e in pessoas:
+    for nome, t, e, h in pessoas:
 
-        producao = t + e
+        producao = t + e + h
         comissao = producao * 50
 
-        df.append([nome, producao, comissao])
+        df.append([nome, t, e, h, producao, comissao])
 
         st.markdown(f"""
 <div class="card">
@@ -137,7 +140,8 @@ if st.button("Calcular"):
 
 <div class="small">
 Transportadoras: {t}<br>
-Embarcadores: {e}
+Embarcadores: {e}<br>
+Híbridos: {h}
 </div>
 
 <div class="small">
@@ -152,32 +156,39 @@ Total: R$ {comissao}
 """, unsafe_allow_html=True)
 
     # =========================
-    # RESUMO TIME (SEM SER “META VISUAL”)
+    # BÔNUS DO TIME
     # =========================
-    st.subheader("📊 Bônus do Time")
+    st.subheader("🏆 Bônus do Time")
 
     st.markdown(f"""
 <div class="card">
 
-<div class="title">Faixa do Time</div>
+<div class="title">Faixa atingida</div>
 <div class="value ok">{faixa_nome}</div>
 
-<div class="title">Bônus Faixa</div>
+<div class="title">Bônus faixa</div>
 <div class="value ok">R$ {bonus_faixa}</div>
 
 <div class="title">Success Fee</div>
 <div class="value ok">R$ {bonusSF}</div>
 
-<div class="title">Total Bônus Coletivo</div>
+<div class="title">Total bônus time</div>
 <div class="value ok">R$ {bonus_faixa + bonusSF}</div>
 
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
-    # TABELA
+    # RESUMO
     # =========================
-    df = pd.DataFrame(df, columns=["Pessoa","Produção","Comissão"])
+    df = pd.DataFrame(df, columns=[
+        "Pessoa",
+        "Transportadoras",
+        "Embarcadores",
+        "Híbridos",
+        "Produção",
+        "Comissão"
+    ])
 
-    st.subheader("📋 Resumo")
+    st.subheader("📊 Resumo Geral")
     st.dataframe(df, use_container_width=True)

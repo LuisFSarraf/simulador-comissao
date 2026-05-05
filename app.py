@@ -3,7 +3,7 @@ import streamlit as st
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
 # =========================
-# CSS LIMPO
+# CSS
 # =========================
 st.markdown("""
 <style>
@@ -19,7 +19,6 @@ st.markdown("""
 .title {font-size:20px;font-weight:600;}
 .value {font-size:30px;font-weight:bold;}
 .small {font-size:14px;opacity:0.8;}
-
 .ok {color:#3b82f6;}
 </style>
 """, unsafe_allow_html=True)
@@ -40,15 +39,13 @@ def input_user(nome):
 
 with col1:
     t1, e1, c1 = input_user("Luis Felipe")
-
 with col2:
     t2, e2, c2 = input_user("Fernando")
-
 with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# SUCCESS FEE
+# SUCCESS FEE (CORRETO)
 # =========================
 st.subheader("📈 Success Fee")
 
@@ -75,12 +72,12 @@ st.markdown(f"""
 <div class="title">Success Fee</div>
 <div class="value ok">R$ {sf_valor}</div>
 <div class="small">{sf_percent:.1f}% - {faixa_sf}</div>
-<div class="small">Bônus: R$ {bonusSF}</div>
+<div class="small">Bônus compartilhado: R$ {bonusSF}</div>
 </div>
 """, unsafe_allow_html=True)
 
 # =========================
-# CORINGA
+# CORINGA (TIME LEVEL)
 # =========================
 def calcular_coringa(t, e, c):
     bonus = 0
@@ -107,22 +104,21 @@ def calcular_coringa(t, e, c):
 # =========================
 if st.button("Calcular"):
 
+    # TOTAL TIME
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
     bonus_faixa, faixa, ut, ue = calcular_coringa(total_t, total_e, total_c)
 
-    final_t = total_t + ut
-    final_e = total_e + ue
-
     # =========================
-    # RESULTADO INDIVIDUAL DISCRIMINADO
+    # FUNÇÕES FINANCEIRAS
     # =========================
-    st.subheader("💰 Resultado Individual (Discriminado)")
-
-    def comissao_contratos(t,e,c):
+    def comissao(t,e,c):
         return (t + e + c) * 50
+
+    def total_individual(t,e,c):
+        return comissao(t,e,c) + bonus_faixa + bonusSF
 
     pessoas = [
         ("Luis Felipe", t1, e1, c1),
@@ -130,17 +126,18 @@ if st.button("Calcular"):
         ("Outro", t3, e3, c3)
     ]
 
+    # =========================
+    # RESULTADO INDIVIDUAL (CORRIGIDO)
+    # =========================
+    st.subheader("💰 Resultado Individual")
+
     cards = ""
 
-    for nome, t, e, c in pessoas:
+    for nome,t,e,c in pessoas:
 
-        contratos = t + e + c
-
-        comissao = comissao_contratos(t,e,c)
-        bonus_faixa_ind = bonus_faixa
-        bonus_fee_ind = bonusSF
-
-        total = comissao + bonus_faixa_ind + bonus_fee_ind
+        contratos = t+e+c
+        com = comissao(t,e,c)
+        total = total_individual(t,e,c)
 
         cards += f"""
         <div class="card">
@@ -149,9 +146,9 @@ if st.button("Calcular"):
             <div class="value">{contratos} contratos</div>
 
             <div class="small">
-            💼 Comissão contratos: R$ {comissao}<br>
-            🏆 Bônus faixa: R$ {bonus_faixa_ind}<br>
-            📈 Success Fee: R$ {bonus_fee_ind}
+            💼 Comissão: R$ {com}<br>
+            🏆 Bônus faixa (time): R$ {bonus_faixa}<br>
+            📈 Success Fee (time): R$ {bonusSF}
             </div>
 
             <div class="value ok">
@@ -169,15 +166,10 @@ if st.button("Calcular"):
 
     st.markdown(f"""
     <div class="card">
-    <div class="title">Meta Transportadoras</div>
-    <div class="value ok">{final_t} / 50</div>
-
-    <div class="title">Meta Embarcadores</div>
-    <div class="value ok">{final_e} / 20</div>
-
     <div class="title">Faixa do Time</div>
     <div class="value ok">{faixa}</div>
 
     <div class="small">Bônus faixa: R$ {bonus_faixa}</div>
+    <div class="small">Coringas usados: +{ut} / +{ue}</div>
     </div>
     """, unsafe_allow_html=True)

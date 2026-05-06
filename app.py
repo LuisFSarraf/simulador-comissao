@@ -118,12 +118,13 @@ def calcular_total(t, e, c, bonus_sf):
 
 nomes_padrão = ["Luis Felipe", "Fernando", "Outro"]
 
+nomes = []
 with st.expander("⚙️ Configurar nomes dos vendedores", expanded=False):
-    nomes = []
     for n in nomes_padrão:
         nomes.append(st.text_input(f"Nome ({n})", value=n))
-else:
-    nomes = nomes_padrão
+
+if not nomes:
+    nomes = list(nomes_padrão)
 
 sf_opcao = st.selectbox("📈 Success Fee do Time", list(SUCCESS_FEE_MAP.keys()))
 bonus_sf, sf_label = SUCCESS_FEE_MAP[sf_opcao]

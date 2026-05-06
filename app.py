@@ -4,7 +4,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
-st.title("📊 Sistema Comercial - Regras Oficiais")
+st.title("📊 Sistema Comercial - Lógica Correta Final")
 
 # =========================
 # INPUTS
@@ -28,7 +28,24 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# FAIXA (INDIVIDUAL)
+# SUCCESS FEE (INPUT EXTERNO)
+# =========================
+sf = st.selectbox("📈 Success Fee do Time", ["0%", "100%", "120%", "150%"])
+
+def valor_sf(sf):
+    if sf == "150%":
+        return 500
+    elif sf == "120%":
+        return 300
+    elif sf == "100%":
+        return 200
+    else:
+        return 0
+
+bonus_sf_total = valor_sf(sf)
+
+# =========================
+# FAIXA
 # =========================
 def faixa(t, e):
 
@@ -44,20 +61,6 @@ def faixa(t, e):
         return 0, "Sem faixa"
 
 # =========================
-# SUCCESS FEE (TIME)
-# =========================
-def success_fee(total):
-
-    if total >= 150:
-        return 500, "150%"
-    elif total >= 120:
-        return 300, "120%"
-    elif total >= 100:
-        return 200, "100%"
-    else:
-        return 0, "0%"
-
-# =========================
 # EXECUÇÃO
 # =========================
 if st.button("🚀 Calcular"):
@@ -69,19 +72,10 @@ if st.button("🚀 Calcular"):
     ]
 
     # =========================
-    # TIME TOTAL
+    # TOTAL TIME (SÓ PARA RATEIO)
     # =========================
-    total_t = t1 + t2 + t3
-    total_e = e1 + e2 + e3
-    total_c = c1 + c2 + c3
+    total_contratos = sum([t1+e1+c1, t2+e2+c2, t3+e3+c3])
 
-    total_contratos_time = total_t + total_e + total_c
-
-    bonus_sf, nivel_sf = success_fee(total_contratos_time)
-
-    # =========================
-    # INDIVIDUAL
-    # =========================
     st.subheader("💰 Resultado Individual")
 
     ranking = []
@@ -93,11 +87,12 @@ if st.button("🚀 Calcular"):
         # 💰 comissão
         comissao = contratos * 50
 
-        # 🏆 faixa individual (coringa ajuda aqui)
+        # 🏆 faixa individual
         bonus_faixa, faixa_nome = faixa(t + c, e + c)
 
-        # 📈 success fee é bônus fixo do time (não rateado)
-        bonus_sf_ind = bonus_sf
+        # 📊 rateio do success fee (independente de contratos)
+        proporcao = contratos / total_contratos if total_contratos > 0 else 0
+        bonus_sf_ind = bonus_sf_total * proporcao
 
         total = comissao + bonus_faixa + bonus_sf_ind
 
@@ -113,7 +108,7 @@ if st.button("🚀 Calcular"):
 💰 Comissão: R$ {comissao:.2f}  
 🏆 Faixa: {faixa_nome} → R$ {bonus_faixa:.2f}  
 
-📈 Success Fee do time: {nivel_sf} → R$ {bonus_sf}
+📈 Success Fee do time ({sf}) → R$ {bonus_sf_ind:.2f}
 
 <h2 style="color:#3b82f6">TOTAL: R$ {total:.2f}</h2>
 
@@ -126,12 +121,8 @@ if st.button("🚀 Calcular"):
     st.subheader("👥 Resultado do Time")
 
     st.write(f"""
-📦 Transportadoras: {total_t}  
-📦 Embarcadores: {total_e}  
-🔁 Coringas: {total_c}  
-📊 Total Contratos: {total_contratos_time}  
-📈 Success Fee: {nivel_sf}  
-💰 Bonus Time: R$ {bonus_sf}
+📦 Total Contratos: {total_contratos}  
+📈 Success Fee: {sf} → R$ {bonus_sf_total}
 """)
 
     # =========================

@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
-st.title("📊 Sistema Comercial - Versão Final Corrigida")
+st.title("📊 Sistema Comercial - Versão Final Ajustada")
 
 # =========================
 # INPUTS
@@ -44,24 +44,32 @@ def valor_sf(sf):
 bonus_sf = valor_sf(sf)
 
 # =========================
-# FAIXA (CORRIGIDA COM CORINGA)
+# FAIXA (CORRIGIDA - OTIMIZAÇÃO CORINGA)
 # =========================
 def faixa(t, e, c):
 
-    # coringa ajuda a bater transportadoras
-    t_final = t + c
-    e_final = e
+    melhor_bonus = 0
+    melhor_nome = "Sem faixa"
 
-    if t_final >= 50 and e_final >= 20:
-        return 1000, "Faixa 4"
-    elif t_final >= 40 and e_final >= 16:
-        return 800, "Faixa 3"
-    elif t_final >= 30 and e_final >= 12:
-        return 600, "Faixa 2"
-    elif t_final >= 20 and e_final >= 8:
-        return 400, "Faixa 1"
-    else:
-        return 0, "Sem faixa"
+    # testa todas distribuições possíveis do coringa
+    for i in range(c + 1):
+
+        t_final = t + i
+        e_final = e + (c - i)
+
+        if t_final >= 50 and e_final >= 20:
+            return 1000, "Faixa 4"
+
+        if t_final >= 40 and e_final >= 16:
+            melhor_bonus, melhor_nome = 800, "Faixa 3"
+
+        elif t_final >= 30 and e_final >= 12:
+            melhor_bonus, melhor_nome = 600, "Faixa 2"
+
+        elif t_final >= 20 and e_final >= 8:
+            melhor_bonus, melhor_nome = 400, "Faixa 1"
+
+    return melhor_bonus, melhor_nome
 
 # =========================
 # EXECUÇÃO
@@ -85,10 +93,10 @@ if st.button("🚀 Calcular"):
         # 💰 comissão
         comissao = contratos * 50
 
-        # 🏆 faixa (CORRIGIDA)
+        # 🏆 faixa corrigida
         bonus_faixa, faixa_nome = faixa(t, e, c)
 
-        # 📈 success fee (individual fixo)
+        # 📈 success fee fixo (time)
         bonus_sf_ind = bonus_sf
 
         total = comissao + bonus_faixa + bonus_sf_ind

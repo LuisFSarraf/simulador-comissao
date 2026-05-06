@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
-st.title("📊 Sistema Comercial - Versão Final Limpa")
+st.title("📊 Sistema Comercial - Versão Final Corrigida")
 
 # =========================
 # INPUTS
@@ -44,17 +44,21 @@ def valor_sf(sf):
 bonus_sf = valor_sf(sf)
 
 # =========================
-# FAIXA (INDIVIDUAL)
+# FAIXA (CORRIGIDA COM CORINGA)
 # =========================
-def faixa(t, e):
+def faixa(t, e, c):
 
-    if t >= 50 and e >= 20:
+    # coringa ajuda a bater transportadoras
+    t_final = t + c
+    e_final = e
+
+    if t_final >= 50 and e_final >= 20:
         return 1000, "Faixa 4"
-    elif t >= 40 and e >= 16:
+    elif t_final >= 40 and e_final >= 16:
         return 800, "Faixa 3"
-    elif t >= 30 and e >= 12:
+    elif t_final >= 30 and e_final >= 12:
         return 600, "Faixa 2"
-    elif t >= 20 and e >= 8:
+    elif t_final >= 20 and e_final >= 8:
         return 400, "Faixa 1"
     else:
         return 0, "Sem faixa"
@@ -81,8 +85,8 @@ if st.button("🚀 Calcular"):
         # 💰 comissão
         comissao = contratos * 50
 
-        # 🏆 faixa
-        bonus_faixa, faixa_nome = faixa(t, e)
+        # 🏆 faixa (CORRIGIDA)
+        bonus_faixa, faixa_nome = faixa(t, e, c)
 
         # 📈 success fee (individual fixo)
         bonus_sf_ind = bonus_sf
@@ -121,7 +125,7 @@ if st.button("🚀 Calcular"):
 """)
 
     # =========================
-    # RANKING (SEM GRÁFICO)
+    # RANKING
     # =========================
     df = pd.DataFrame(ranking, columns=["Pessoa", "Contratos"])
     df = df.sort_values("Contratos", ascending=False)

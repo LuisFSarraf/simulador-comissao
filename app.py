@@ -56,7 +56,6 @@ st.title("📊 Dashboard Comercial")
 # ─────────────────────────────────────────────
 
 FAIXAS = [
-    # (número, min_transportadoras, min_embarcadores, bônus)
     (4, 50, 20, 1000),
     (3, 40, 16,  800),
     (2, 30, 12,  600),
@@ -71,45 +70,40 @@ SUCCESS_FEE_MAP = {
 }
 
 def calcular_comissao(t, e, c):
-    """R$ 50 por contrato; coringa conta normalmente."""
     return (t + e + c) * 50
 
 def calcular_melhor_faixa(t, e, c):
-    """
-    Testa todas as distribuições possíveis do coringa entre
-    transportadoras e embarcadores para maximizar a faixa.
-    Retorna (bônus, nome_da_faixa, t_usado, e_usado).
-    """
+
     melhor_bonus = 0
     melhor_nome  = "Sem faixa"
     melhor_dist  = (t, e)
 
-    for i in range(c + 1):           # i coringas viram transportadora
+    for i in range(c + 1):
         t_final = t + i
-        e_final = e + (c - i)        # resto vira embarcador
+        e_final = e + (c - i)
 
-        for num, min_t, min_e, bonus in FAIXAS:   # faixas em ordem decrescente
+        for num, min_t, min_e, bonus in FAIXAS:
             if t_final >= min_t and e_final >= min_e:
                 if bonus > melhor_bonus:
                     melhor_bonus = bonus
                     melhor_nome  = f"Faixa {num}"
                     melhor_dist  = (t_final, e_final)
-                break   # melhor faixa para esta distribuição já encontrada
+                break
 
     return melhor_bonus, melhor_nome, melhor_dist
 
 def calcular_total(t, e, c, bonus_sf):
-    comissao               = calcular_comissao(t, e, c)
+    comissao = calcular_comissao(t, e, c)
     bonus_faixa, nome_faixa, dist = calcular_melhor_faixa(t, e, c)
-    total                  = comissao + bonus_faixa + bonus_sf
+    total = comissao + bonus_faixa + bonus_sf
     return {
-        "comissao":    comissao,
+        "comissao": comissao,
         "bonus_faixa": bonus_faixa,
-        "nome_faixa":  nome_faixa,
-        "dist":        dist,
-        "bonus_sf":    bonus_sf,
-        "total":       total,
-        "contratos":   t + e + c,
+        "nome_faixa": nome_faixa,
+        "dist": dist,
+        "bonus_sf": bonus_sf,
+        "total": total,
+        "contratos": t + e + c,
     }
 
 # ─────────────────────────────────────────────
@@ -138,92 +132,65 @@ dados_input = []
 for idx, (col, nome) in enumerate(zip(cols, nomes)):
     with col:
         st.markdown(f"**{nome}**")
-        t = st.number_input(f"Transportadoras", min_value=0, step=1, key=f"t_{idx}")
-        e = st.number_input(f"Embarcadores",    min_value=0, step=1, key=f"e_{idx}")
-        c = st.number_input(f"Coringas",        min_value=0, step=1, key=f"c_{idx}")
+        t = st.number_input("Transportadoras", min_value=0, step=1, key=f"t_{idx}")
+        e = st.number_input("Embarcadores",    min_value=0, step=1, key=f"e_{idx}")
+        c = st.number_input("Coringas",        min_value=0, step=1, key=f"c_{idx}")
         dados_input.append((nome, int(t), int(e), int(c)))
 
 # ─────────────────────────────────────────────
-# CÁLCULO E RESULTADO
+# CÁLCULO
 # ─────────────────────────────────────────────
 
 if st.button("🚀 Calcular Comissões", use_container_width=True):
-    # DEBUG — remover depois
-    st.write(f"DEBUG → t1={t1}, e1={e1}, c1={c1}")
-    st.write(f"Faixa calculada: {calcular_melhor_faixa(t1, e1, c1)}")
+
+    # ✅ DEBUG CORRETO
+    st.subheader("🛠️ Debug (validação)")
+    for nome, t, e, c in dados_input:
+        bonus_faixa, faixa_nome, dist = calcular_melhor_faixa(t, e, c)
+        st.write(f"{nome} → T={t}, E={e}, C={c}")
+        st.write(f"Faixa: {faixa_nome} | Bônus: {bonus_faixa} | Distribuição: {dist}")
+        st.write("---")
 
     st.markdown("---")
     st.subheader("💰 Resultado Individual")
 
     resultados = []
+
     for nome, t, e, c in dados_input:
         r = calcular_total(t, e, c, bonus_sf)
         r["nome"] = nome
         resultados.append(r)
 
-        # tag de faixa
         if r["nome_faixa"] == "Sem faixa":
             tag_faixa = f'<span class="tag-sem-faixa">{r["nome_faixa"]}</span>'
         else:
             tag_faixa = f'<span class="tag-faixa">{r["nome_faixa"]}</span>'
 
-        # detalhe do coringa (quando há coringas)
         detalhe_coringa = ""
         if c > 0:
             t_final, e_final = r["dist"]
             detalhe_coringa = (
                 f'<div class="linha" style="color:#64748b;font-size:13px">'
-                f'↳ Coringas distribuídos: {t_final - t} como transp. / {e_final - e} como embarc.'
+                f'↳ Coringas: {t_final - t} em T / {e_final - e} em E'
                 f'</div>'
             )
 
         st.markdown(f"""
 <div class="card">
   <h3>{nome}</h3>
-  <h2>{r["contratos"]} contratos &nbsp;·&nbsp; {t} transp. + {e} emb. + {c} coringas</h2>
-  <div class="linha">💰 Comissão por contratos: <b>R$ {r["comissao"]:,.2f}</b></div>
-  <div class="linha">🏆 Bônus de faixa: {tag_faixa} → <b>R$ {r["bonus_faixa"]:,.2f}</b></div>
+  <h2>{r["contratos"]} contratos</h2>
+  <div class="linha">💰 Comissão: <b>R$ {r["comissao"]:,.2f}</b></div>
+  <div class="linha">🏆 Faixa: {tag_faixa} → <b>R$ {r["bonus_faixa"]:,.2f}</b></div>
   {detalhe_coringa}
-  <div class="linha">📈 Bônus success fee ({sf_opcao}): <b>R$ {r["bonus_sf"]:,.2f}</b></div>
+  <div class="linha">📈 Success Fee: <b>R$ {r["bonus_sf"]:,.2f}</b></div>
   <div class="total">TOTAL: R$ {r["total"]:,.2f}</div>
 </div>
 """, unsafe_allow_html=True)
 
-    # ─── RESULTADO DO TIME ───
+    # TIME
     total_contratos = sum(r["contratos"] for r in resultados)
-    total_geral     = sum(r["total"]     for r in resultados)
+    total_geral = sum(r["total"] for r in resultados)
 
     st.subheader("👥 Resultado do Time")
-    st.markdown(f"""
-<div class="card-time">
-  <div class="linha">📦 <b>Total de Contratos:</b> {total_contratos}</div>
-  <div class="linha">📈 <b>Success Fee ({sf_label}):</b> R$ {bonus_sf:,.2f} por pessoa</div>
-  <div class="linha">💵 <b>Total Pago ao Time:</b> R$ {total_geral:,.2f}</div>
-</div>
-""", unsafe_allow_html=True)
-
-    # ─── RANKING ───
-    st.subheader("🏆 Ranking")
-    df = pd.DataFrame([{
-        "Vendedor":       r["nome"],
-        "Contratos":      r["contratos"],
-        "Comissão (R$)":  r["comissao"],
-        "Faixa":          r["nome_faixa"],
-        "Bônus Faixa (R$)": r["bonus_faixa"],
-        "Success Fee (R$)": r["bonus_sf"],
-        "Total (R$)":     r["total"],
-    } for r in resultados])
-
-    df = df.sort_values("Total (R$)", ascending=False).reset_index(drop=True)
-    df.index += 1
-    df.index.name = "Pos."
-
-    st.dataframe(
-        df.style.format({
-            "Comissão (R$)":     "R$ {:,.2f}",
-            "Bônus Faixa (R$)":  "R$ {:,.2f}",
-            "Success Fee (R$)":  "R$ {:,.2f}",
-            "Total (R$)":        "R$ {:,.2f}",
-        }),
-        use_container_width=True,
-    )
+    st.write(f"Total contratos: {total_contratos}")
+    st.write(f"Total pago: R$ {total_geral:,.2f}")

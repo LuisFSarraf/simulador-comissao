@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 SaaS Comercial - Comissão & Performance")
+st.title("📊 SaaS Comercial - Sistema Correto")
 
 # =========================
 # INPUTS
@@ -49,22 +49,10 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# SUCCESS FEE (INDIVIDUAL AGORA)
+# FAIXA (CORRETA)
 # =========================
-def calc_sf(valor):
-    if valor >= 150:
-        return 500, "150%"
-    elif valor >= 120:
-        return 300, "120%"
-    elif valor >= 100:
-        return 200, "100%"
-    else:
-        return 0, "0%"
+def faixa(t, e):
 
-# =========================
-# FAIXA INDIVIDUAL
-# =========================
-def faixa_individual(t, e):
     if t >= 50 and e >= 20:
         return 1000, "Faixa 4"
     elif t >= 40 and e >= 16:
@@ -77,6 +65,22 @@ def faixa_individual(t, e):
         return 0, "Sem faixa"
 
 # =========================
+# SUCCESS FEE (GLOBAL)
+# =========================
+def success_fee(total_t, total_e):
+
+    score = (total_t + total_e)
+
+    if score >= 80:
+        return 500, "150%"
+    elif score >= 60:
+        return 300, "120%"
+    elif score >= 40:
+        return 200, "100%"
+    else:
+        return 0, "0%"
+
+# =========================
 # EXECUÇÃO
 # =========================
 if st.button("🚀 Calcular"):
@@ -87,32 +91,37 @@ if st.button("🚀 Calcular"):
         ("Outro", t3, e3, c3)
     ]
 
-    st.subheader("💰 Resultado Individual (CORRETO)")
+    st.subheader("💰 Resultado Individual Correto")
+
+    total_t = t1 + t2 + t3
+    total_e = e1 + e2 + e3
+
+    bonus_sf, nivel_sf = success_fee(total_t, total_e)
 
     df = []
 
     for nome, t, e, c in pessoas:
 
+        # ✔ comissão correta
         contratos = t + e + c
-
-        # 💰 comissão (CORINGA INCLUIDO)
         comissao = contratos * 50
 
-        # 🏆 bônus de faixa INDIVIDUAL
-        bonus_faixa, faixa_nome = faixa_individual(t + c, e + c)
+        # ✔ faixa individual correta (SEM coringa)
+        bonus_faixa, faixa_nome = faixa(t, e)
 
-        # 📈 success fee INDIVIDUAL (exemplo simples baseado em performance)
-        sf_input = min(200, (contratos / 100) * 100)
-        bonus_sf, nivel_sf = calc_sf(sf_input)
+        # ✔ success fee proporcional (justo)
+        proporcao = contratos / max(1, (t1+t2+t3 + e1+e2+e3 + c1+c2+c3))
 
-        total = comissao + bonus_faixa + bonus_sf
+        bonus_sf_ind = bonus_sf * proporcao
+
+        total = comissao + bonus_faixa + bonus_sf_ind
 
         df.append([
             nome,
             contratos,
             comissao,
             bonus_faixa,
-            bonus_sf,
+            bonus_sf_ind,
             total
         ])
 
@@ -126,7 +135,7 @@ if st.button("🚀 Calcular"):
 <div class="small">
 💰 Comissão: R$ {comissao:.2f}<br>
 🏆 Bônus faixa: R$ {bonus_faixa:.2f} ({faixa_nome})<br>
-📈 Success Fee: R$ {bonus_sf:.2f} ({nivel_sf})
+📈 Success Fee: R$ {bonus_sf_ind:.2f}
 </div>
 
 <div class="value ok">TOTAL: R$ {total:.2f}</div>

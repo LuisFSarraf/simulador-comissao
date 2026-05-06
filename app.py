@@ -28,7 +28,7 @@ st.markdown("""
 st.title("📊 SaaS Comercial - Performance & Comissão")
 
 # =========================
-# INPUTS (CORRIGIDO)
+# INPUTS
 # =========================
 col1, col2, col3 = st.columns(3)
 
@@ -46,7 +46,7 @@ with col2:
     t2, e2, c2 = input_user("Fernando")
 
 with col3:
-    t3, e3, c3 = input_user("Outro")  # ✔ FIX AQUI (era e2 antes)
+    t3, e3, c3 = input_user("Outro")
 
 # =========================
 # SUCCESS FEE
@@ -81,7 +81,7 @@ def faixa(t, e):
         return 0, "Sem faixa", (20,8)
 
 # =========================
-# CORINGA (OTIMIZAÇÃO INTELIGENTE)
+# CORINGA (OTIMIZAÇÃO TIME)
 # =========================
 def aplicar_otimizacao(t, e, c):
 
@@ -110,25 +110,12 @@ def aplicar_otimizacao(t, e, c):
         return t, e
 
     def score(t, e):
-
-        if t >= 50 and e >= 20:
-            return 4
-        elif t >= 40 and e >= 16:
-            return 3
-        elif t >= 30 and e >= 12:
-            return 2
-        elif t >= 20 and e >= 8:
-            return 1
-        else:
-            return 0
+        return (min(t/50,1)*4) + (min(e/20,1)*4)
 
     r1 = simular(t, e, c, "T")
     r2 = simular(t, e, c, "E")
 
-    if score(r1[0], r1[1]) >= score(r2[0], r2[1]):
-        return r1
-    else:
-        return r2
+    return r1 if score(r1[0], r1[1]) >= score(r2[0], r2[1]) else r2
 
 # =========================
 # EXECUÇÃO
@@ -144,13 +131,10 @@ if st.button("🚀 Calcular"):
 
     t_final, e_final = aplicar_otimizacao(t_total, e_total, c_total)
 
-    bonus, faixa_nome, target = faixa(t_final, e_final)
-
-    falta_t = max(0, target[0] - t_final)
-    falta_e = max(0, target[1] - e_final)
+    bonus_faixa, faixa_nome, target = faixa(t_final, e_final)
 
     # =========================
-    # INDIVIDUAL
+    # INDIVIDUAL BASE
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, c1),
@@ -158,16 +142,36 @@ if st.button("🚀 Calcular"):
         ("Outro", t3, e3, c3)
     ]
 
-    st.subheader("💰 Resultado Individual")
+    total_contratos = sum([t1+e1+c1, t2+e2+c2, t3+e3+c3])
+    total_contratos = total_contratos if total_contratos > 0 else 1
+
+    st.subheader("💰 Resultado Individual Detalhado")
 
     df = []
 
     for nome, t, e, c in pessoas:
 
         contratos = t + e + c
-        comissao = contratos * 50  # coringa gera comissão
 
-        df.append([nome, t, e, c, contratos, comissao])
+        # 💰 Comissão base (CORINGA ENTRA)
+        comissao_base = contratos * 50
+
+        # proporcional dos bônus do time
+        proporcao = contratos / total_contratos
+
+        bonus_faixa_ind = bonus_faixa * proporcao
+        bonus_sf_ind = bonusSF * proporcao
+
+        total_final = comissao_base + bonus_faixa_ind + bonus_sf_ind
+
+        df.append([
+            nome,
+            contratos,
+            comissao_base,
+            bonus_faixa_ind,
+            bonus_sf_ind,
+            total_final
+        ])
 
         st.markdown(f"""
 <div class="card">
@@ -179,16 +183,20 @@ if st.button("🚀 Calcular"):
 <div class="small">
 🚚 Transportadoras: {t}<br>
 📦 Embarcadores: {e}<br>
-🔁 Coringas: {c}
+🔁 Coringas: {c}<br><br>
+
+💰 Comissão base: R$ {comissao_base:.2f}<br>
+🏆 Bônus faixa: R$ {bonus_faixa_ind:.2f}<br>
+📈 Success Fee: R$ {bonus_sf_ind:.2f}
 </div>
 
-<div class="value ok">R$ {comissao}</div>
+<div class="value ok">TOTAL: R$ {total_final:.2f}</div>
 
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
-    # KPIs TIME
+    # TIME KPIs
     # =========================
     st.subheader("📊 Performance do Time")
 
@@ -197,7 +205,7 @@ if st.button("🚀 Calcular"):
     colA.metric("Faixa", faixa_nome)
     colB.metric("Transportadoras", t_final)
     colC.metric("Embarcadores", e_final)
-    colD.metric("Bônus", f"R$ {bonus}")
+    colD.metric("Bônus Faixa", f"R$ {bonus_faixa}")
 
     st.write(f"📈 Success Fee: {nivelSF} → R$ {bonusSF}")
 
@@ -205,6 +213,9 @@ if st.button("🚀 Calcular"):
     # PROGRESSO
     # =========================
     st.subheader("🎯 Progresso para próxima faixa")
+
+    falta_t = max(0, target[0] - t_final)
+    falta_e = max(0, target[1] - e_final)
 
     st.write(f"Faltam {falta_t} Transportadoras")
     st.write(f"Faltam {falta_e} Embarcadores")
@@ -227,11 +238,16 @@ if st.button("🚀 Calcular"):
     st.plotly_chart(fig, use_container_width=True)
 
     # =========================
-    # DETALHAMENTO
+    # TABELA FINAL
     # =========================
     df = pd.DataFrame(df, columns=[
-        "Pessoa","Transportadoras","Embarcadores","Coringas","Contratos","Comissão"
+        "Pessoa",
+        "Contratos",
+        "Comissão Base",
+        "Bônus Faixa",
+        "Success Fee",
+        "Total Final"
     ])
 
-    st.subheader("📋 Visão Detalhada")
+    st.subheader("📋 Consolidação Geral")
     st.dataframe(df, use_container_width=True)

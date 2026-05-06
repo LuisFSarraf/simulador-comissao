@@ -4,7 +4,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="SaaS Comercial", layout="wide")
 
-st.title("📊 Sistema Comercial - Regras Corretas")
+st.title("📊 Dashboard Comercial - Resultado Correto")
 
 # =========================
 # INPUTS
@@ -28,23 +28,7 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# CORINGA (OTIMIZAÇÃO)
-# =========================
-def otimizar(t, e, c):
-
-    t_opt = t + c
-    e_opt = e + 0
-
-    if t_opt < 50 and e_opt < 20:
-        if e_opt < 20:
-            e_opt += min(c, 20 - e_opt)
-        else:
-            t_opt += c
-
-    return t_opt, e_opt
-
-# =========================
-# FAIXA
+# FAIXA (INDIVIDUAL)
 # =========================
 def faixa(t, e):
 
@@ -65,13 +49,13 @@ def faixa(t, e):
 def success_fee(total):
 
     if total >= 150:
-        return 150
+        return 1.5, "150%"
     elif total >= 120:
-        return 120
+        return 1.2, "120%"
     elif total >= 100:
-        return 100
+        return 1.0, "100%"
     else:
-        return 0
+        return 0, "0%"
 
 # =========================
 # EXECUÇÃO
@@ -85,49 +69,39 @@ if st.button("🚀 Calcular"):
     ]
 
     # =========================
-    # TIME TOTAL
+    # TIME
     # =========================
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
-    t_final, e_final = otimizar(total_t, total_e, total_c)
+    total_time = total_t + total_e + total_c
 
-    meta_total = t_final + e_final
-
-    nivel_sf = success_fee(meta_total)
-
-    # multiplicador da faixa
-    if nivel_sf == 150:
-        mult = 1.5
-    elif nivel_sf == 120:
-        mult = 1.2
-    elif nivel_sf == 100:
-        mult = 1.0
-    else:
-        mult = 0
+    mult, nivel_sf = success_fee(total_time)
 
     # =========================
     # INDIVIDUAL
     # =========================
     st.subheader("💰 Resultado Individual")
 
-    ranking_data = []
+    ranking = []
 
     for nome, t, e, c in pessoas:
 
         contratos = t + e + c
 
+        # 💰 comissão base
         comissao = contratos * 50
 
+        # 🏆 faixa individual (coringa entra aqui)
         bonus_faixa, faixa_nome = faixa(t + c, e + c)
 
-        # ✔ success fee ativa bônus de faixa (multiplicador)
+        # 📈 success fee aplica multiplicador no bônus
         bonus_faixa_final = bonus_faixa * mult
 
         total = comissao + bonus_faixa_final
 
-        ranking_data.append([nome, contratos])
+        ranking.append([nome, contratos])
 
         st.markdown(f"""
 <div style="background:#1e293b;padding:18px;border-radius:16px;margin-bottom:12px">
@@ -137,26 +111,37 @@ if st.button("🚀 Calcular"):
 <h2>{contratos} contratos</h2>
 
 💰 Comissão: R$ {comissao:.2f}  
-🏆 Faixa: {faixa_nome}  
+🏆 Faixa: {faixa_nome} → R$ {bonus_faixa:.2f}  
 
-📈 Success Fee: {nivel_sf}% (multiplicador {mult})
+📈 Success Fee do time: {nivel_sf} (x{mult})
 
-<h3 style="color:#3b82f6">BÔNUS FAIXA FINAL: R$ {bonus_faixa_final:.2f}</h3>
-
-<h2>TOTAL: R$ {total:.2f}</h2>
+<h2 style="color:#3b82f6">TOTAL: R$ {total:.2f}</h2>
 
 </div>
 """, unsafe_allow_html=True)
 
     # =========================
+    # TIME
+    # =========================
+    st.subheader("👥 Resultado do Time")
+
+    st.write(f"""
+    📦 Transportadoras: {total_t}  
+    📦 Embarcadores: {total_e}  
+    🔁 Coringas: {total_c}  
+    📊 Total: {total_time}  
+    🎯 Success Fee: {nivel_sf}
+    """)
+
+    # =========================
     # RANKING
     # =========================
-    ranking = pd.DataFrame(ranking_data, columns=["Pessoa", "Contratos"])
-    ranking = ranking.sort_values("Contratos", ascending=False)
+    df = pd.DataFrame(ranking, columns=["Pessoa", "Contratos"])
+    df = df.sort_values("Contratos", ascending=False)
 
     st.subheader("🏆 Ranking")
-    st.dataframe(ranking, use_container_width=True)
+    st.dataframe(df, use_container_width=True)
 
-    fig = px.bar(ranking, x="Pessoa", y="Contratos", text="Contratos")
+    fig = px.bar(df, x="Pessoa", y="Contratos", text="Contratos")
     fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)

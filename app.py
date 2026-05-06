@@ -25,10 +25,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 SaaS Comercial - Sistema de Performance")
+st.title("📊 SaaS Comercial - Performance & Comissão")
 
 # =========================
-# INPUTS
+# INPUTS (CORRIGIDO)
 # =========================
 col1, col2, col3 = st.columns(3)
 
@@ -41,10 +41,12 @@ def input_user(nome):
 
 with col1:
     t1, e1, c1 = input_user("Luis Felipe")
+
 with col2:
     t2, e2, c2 = input_user("Fernando")
+
 with col3:
-    t3, e2, c3 = input_user("Outro")
+    t3, e3, c3 = input_user("Outro")  # ✔ FIX AQUI (era e2 antes)
 
 # =========================
 # SUCCESS FEE
@@ -79,7 +81,7 @@ def faixa(t, e):
         return 0, "Sem faixa", (20,8)
 
 # =========================
-# CORINGA - OTIMIZAÇÃO INTELIGENTE
+# CORINGA (OTIMIZAÇÃO INTELIGENTE)
 # =========================
 def aplicar_otimizacao(t, e, c):
 
@@ -134,13 +136,12 @@ def aplicar_otimizacao(t, e, c):
 if st.button("🚀 Calcular"):
 
     # =========================
-    # TOTAL TIME
+    # TIME
     # =========================
     t_total = t1 + t2 + t3
     e_total = e1 + e2 + e3
     c_total = c1 + c2 + c3
 
-    # otimização do time
     t_final, e_final = aplicar_otimizacao(t_total, e_total, c_total)
 
     bonus, faixa_nome, target = faixa(t_final, e_final)
@@ -149,7 +150,7 @@ if st.button("🚀 Calcular"):
     falta_e = max(0, target[1] - e_final)
 
     # =========================
-    # INDIVIDUAL (CORRETO)
+    # INDIVIDUAL
     # =========================
     pessoas = [
         ("Luis Felipe", t1, e1, c1),
@@ -163,8 +164,8 @@ if st.button("🚀 Calcular"):
 
     for nome, t, e, c in pessoas:
 
-        contratos = t + e + c  # CORINGA GERA COMISSÃO
-        comissao = contratos * 50
+        contratos = t + e + c
+        comissao = contratos * 50  # coringa gera comissão
 
         df.append([nome, t, e, c, contratos, comissao])
 
@@ -226,7 +227,7 @@ if st.button("🚀 Calcular"):
     st.plotly_chart(fig, use_container_width=True)
 
     # =========================
-    # DETALHE FINAL
+    # DETALHAMENTO
     # =========================
     df = pd.DataFrame(df, columns=[
         "Pessoa","Transportadoras","Embarcadores","Coringas","Contratos","Comissão"

@@ -148,6 +148,9 @@ for idx, (col, nome) in enumerate(zip(cols, nomes)):
 # ─────────────────────────────────────────────
 
 if st.button("🚀 Calcular Comissões", use_container_width=True):
+    # DEBUG — remover depois
+    st.write(f"DEBUG → t1={t1}, e1={e1}, c1={c1}")
+    st.write(f"Faixa calculada: {calcular_melhor_faixa(t1, e1, c1)}")
 
     st.markdown("---")
     st.subheader("💰 Resultado Individual")

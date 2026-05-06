@@ -4,7 +4,25 @@ import plotly.express as px
 
 st.set_page_config(page_title="SaaS Comercial", layout="wide")
 
-st.title("📊 SaaS Comercial - Sistema Final Correto")
+# =========================
+# UI
+# =========================
+st.markdown("""
+<style>
+.main {background-color:#0f172a;color:white;}
+
+.card {
+    background:#1e293b;
+    padding:18px;
+    border-radius:16px;
+    margin-bottom:14px;
+}
+
+h3 {margin-bottom:5px;}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📊 SaaS Comercial - Performance Completa")
 
 # =========================
 # INPUTS
@@ -28,7 +46,7 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# FAIXA (CORRIGIDA)
+# FAIXA INDIVIDUAL
 # =========================
 def faixa(total):
 
@@ -44,18 +62,19 @@ def faixa(total):
         return 0, "Sem faixa"
 
 # =========================
-# SUCCESS FEE (INDIVIDUAL CORRETO)
+# SUCCESS FEE (CORRETO + BAR)
 # =========================
-def success_fee(score):
+def success_fee(total):
 
-    if score >= 150:
-        return 500, "150%"
-    elif score >= 120:
-        return 300, "120%"
-    elif score >= 100:
-        return 200, "100%"
+    if total >= 150:
+        return 500, 150
+    elif total >= 120:
+        return 300, 120
+    elif total >= 100:
+        return 200, 100
     else:
-        return 0, "0%"
+        percent = (total / 100) * 100
+        return 0, percent
 
 # =========================
 # EXECUÇÃO
@@ -68,46 +87,47 @@ if st.button("🚀 Calcular"):
         ("Outro", t3, e3, c3)
     ]
 
-    st.subheader("💰 Resultado Individual (CORRETO FINAL)")
+    st.subheader("💰 Resultado Individual")
 
-    df = []
+    ranking_data = []
 
     for nome, t, e, c in pessoas:
 
-        # ✔ produção real
+        # ✔ contratos reais
         contratos = t + e + c
 
-        # ✔ comissão
+        # ✔ comissão (coringa incluído)
         comissao = contratos * 50
 
-        # ✔ faixa (coringa conta aqui também)
+        # ✔ faixa individual
         bonus_faixa, faixa_nome = faixa(contratos)
 
-        # ✔ success fee individual (BASE REAL)
-        score = contratos
-        bonus_sf, nivel_sf = success_fee(score)
+        # ✔ success fee individual
+        bonus_sf, percent_sf = success_fee(contratos)
 
+        # ✔ total final
         total = comissao + bonus_faixa + bonus_sf
 
-        df.append([
-            nome,
-            contratos,
-            comissao,
-            bonus_faixa,
-            bonus_sf,
-            total
-        ])
+        ranking_data.append([nome, contratos])
 
+        # =========================
+        # CARD INDIVIDUAL
+        # =========================
         st.markdown(f"""
-<div style="background:#1e293b;padding:18px;border-radius:16px;margin-bottom:12px">
+<div class="card">
 
 <h3>{nome}</h3>
 
 <h2>{contratos} contratos</h2>
 
 💰 Comissão: R$ {comissao:.2f}  
-🏆 Bônus faixa ({faixa_nome}): R$ {bonus_faixa:.2f}  
-📈 Success Fee ({nivel_sf}): R$ {bonus_sf:.2f}  
+🏆 Faixa: {faixa_nome} (+ R$ {bonus_faixa:.2f})  
+
+📈 Success Fee: {percent_sf:.0f}%
+
+<div style="background:#334155;height:8px;border-radius:6px;margin:8px 0;">
+<div style="width:{min(percent_sf/150*100,100)}%;height:8px;background:#3b82f6;border-radius:6px"></div>
+</div>
 
 <h3 style="color:#3b82f6">TOTAL: R$ {total:.2f}</h3>
 
@@ -117,10 +137,8 @@ if st.button("🚀 Calcular"):
     # =========================
     # RANKING
     # =========================
-    ranking = pd.DataFrame({
-        "Pessoa":[p[0] for p in pessoas],
-        "Contratos":[p[1]+p[2]+p[3] for p in pessoas]
-    }).sort_values("Contratos", ascending=False)
+    ranking = pd.DataFrame(ranking_data, columns=["Pessoa", "Contratos"])
+    ranking = ranking.sort_values("Contratos", ascending=False)
 
     st.subheader("🏆 Ranking")
     st.dataframe(ranking, use_container_width=True)

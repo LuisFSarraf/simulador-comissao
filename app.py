@@ -4,7 +4,7 @@ import plotly.express as px
 
 st.set_page_config(page_title="SaaS Comercial", layout="wide")
 
-st.title("📊 SaaS Comercial - Sistema Final Correto")
+st.title("📊 Sistema Comercial - Regras Corretas")
 
 # =========================
 # INPUTS
@@ -28,41 +28,20 @@ with col3:
     t3, e3, c3 = input_user("Outro")
 
 # =========================
-# CORINGA (OTIMIZAÇÃO FAIXA)
+# CORINGA (OTIMIZAÇÃO)
 # =========================
 def otimizar(t, e, c):
 
-    def simular(t0, e0, c0, prioridade):
+    t_opt = t + c
+    e_opt = e + 0
 
-        t, e, c = t0, e0, c0
-
-        if prioridade == "T":
-
-            uso_t = min(c, max(0, 50 - t))
-            c -= uso_t
-            t += uso_t
-
-            uso_e = min(c, max(0, 20 - e))
-            e += uso_e
-
+    if t_opt < 50 and e_opt < 20:
+        if e_opt < 20:
+            e_opt += min(c, 20 - e_opt)
         else:
+            t_opt += c
 
-            uso_e = min(c, max(0, 20 - e))
-            c -= uso_e
-            e += uso_e
-
-            uso_t = min(c, max(0, 50 - t))
-            t += uso_t
-
-        return t, e
-
-    def score(t, e):
-        return min(t/50,1)*4 + min(e/20,1)*4
-
-    r1 = simular(t, e, c, "T")
-    r2 = simular(t, e, c, "E")
-
-    return r1 if score(r1[0], r1[1]) >= score(r2[0], r2[1]) else r2
+    return t_opt, e_opt
 
 # =========================
 # FAIXA
@@ -81,18 +60,18 @@ def faixa(t, e):
         return 0, "Sem faixa"
 
 # =========================
-# SUCCESS FEE (GLOBAL)
+# SUCCESS FEE (META DO TIME)
 # =========================
 def success_fee(total):
 
     if total >= 150:
-        return 500, 150
+        return 150
     elif total >= 120:
-        return 300, 120
+        return 120
     elif total >= 100:
-        return 200, 100
+        return 100
     else:
-        return 0, (total/100)*100
+        return 0
 
 # =========================
 # EXECUÇÃO
@@ -106,19 +85,27 @@ if st.button("🚀 Calcular"):
     ]
 
     # =========================
-    # TIME (FAIXA + META)
+    # TIME TOTAL
     # =========================
-    t_total = t1 + t2 + t3
-    e_total = e1 + e2 + e3
-    c_total = c1 + c2 + c3
+    total_t = t1 + t2 + t3
+    total_e = e1 + e2 + e3
+    total_c = c1 + c2 + c3
 
-    t_final, e_final = otimizar(t_total, e_total, c_total)
+    t_final, e_final = otimizar(total_t, total_e, total_c)
 
-    bonus_faixa, faixa_nome = faixa(t_final, e_final)
+    meta_total = t_final + e_final
 
-    total_time = t_final + e_final + c_total
+    nivel_sf = success_fee(meta_total)
 
-    bonus_sf, percent_sf = success_fee(total_time)
+    # multiplicador da faixa
+    if nivel_sf == 150:
+        mult = 1.5
+    elif nivel_sf == 120:
+        mult = 1.2
+    elif nivel_sf == 100:
+        mult = 1.0
+    else:
+        mult = 0
 
     # =========================
     # INDIVIDUAL
@@ -133,11 +120,12 @@ if st.button("🚀 Calcular"):
 
         comissao = contratos * 50
 
-        bonus_faixa_ind, faixa_ind = faixa(t + c, e + c)
+        bonus_faixa, faixa_nome = faixa(t + c, e + c)
 
-        bonus_sf_ind = bonus_sf * (contratos / max(1, total_time))
+        # ✔ success fee ativa bônus de faixa (multiplicador)
+        bonus_faixa_final = bonus_faixa * mult
 
-        total = comissao + bonus_faixa_ind + bonus_sf_ind
+        total = comissao + bonus_faixa_final
 
         ranking_data.append([nome, contratos])
 
@@ -149,11 +137,13 @@ if st.button("🚀 Calcular"):
 <h2>{contratos} contratos</h2>
 
 💰 Comissão: R$ {comissao:.2f}  
-🏆 Faixa: {faixa_ind} (+ R$ {bonus_faixa_ind:.2f})  
+🏆 Faixa: {faixa_nome}  
 
-📈 Success Fee: {percent_sf:.0f}% (+ R$ {bonus_sf_ind:.2f})
+📈 Success Fee: {nivel_sf}% (multiplicador {mult})
 
-<h3 style="color:#3b82f6">TOTAL: R$ {total:.2f}</h3>
+<h3 style="color:#3b82f6">BÔNUS FAIXA FINAL: R$ {bonus_faixa_final:.2f}</h3>
+
+<h2>TOTAL: R$ {total:.2f}</h2>
 
 </div>
 """, unsafe_allow_html=True)

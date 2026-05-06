@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="SaaS Comercial", layout="wide")
+st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
-st.title("📊 Dashboard Comercial - Resultado Correto")
+st.title("📊 Sistema Comercial - Regras Oficiais")
 
 # =========================
 # INPUTS
@@ -44,16 +44,16 @@ def faixa(t, e):
         return 0, "Sem faixa"
 
 # =========================
-# SUCCESS FEE (META DO TIME)
+# SUCCESS FEE (TIME)
 # =========================
 def success_fee(total):
 
     if total >= 150:
-        return 1.5, "150%"
+        return 500, "150%"
     elif total >= 120:
-        return 1.2, "120%"
+        return 300, "120%"
     elif total >= 100:
-        return 1.0, "100%"
+        return 200, "100%"
     else:
         return 0, "0%"
 
@@ -69,15 +69,15 @@ if st.button("🚀 Calcular"):
     ]
 
     # =========================
-    # TIME
+    # TIME TOTAL
     # =========================
     total_t = t1 + t2 + t3
     total_e = e1 + e2 + e3
     total_c = c1 + c2 + c3
 
-    total_time = total_t + total_e + total_c
+    total_contratos_time = total_t + total_e + total_c
 
-    mult, nivel_sf = success_fee(total_time)
+    bonus_sf, nivel_sf = success_fee(total_contratos_time)
 
     # =========================
     # INDIVIDUAL
@@ -90,16 +90,16 @@ if st.button("🚀 Calcular"):
 
         contratos = t + e + c
 
-        # 💰 comissão base
+        # 💰 comissão
         comissao = contratos * 50
 
-        # 🏆 faixa individual (coringa entra aqui)
+        # 🏆 faixa individual (coringa ajuda aqui)
         bonus_faixa, faixa_nome = faixa(t + c, e + c)
 
-        # 📈 success fee aplica multiplicador no bônus
-        bonus_faixa_final = bonus_faixa * mult
+        # 📈 success fee é bônus fixo do time (não rateado)
+        bonus_sf_ind = bonus_sf
 
-        total = comissao + bonus_faixa_final
+        total = comissao + bonus_faixa + bonus_sf_ind
 
         ranking.append([nome, contratos])
 
@@ -113,7 +113,7 @@ if st.button("🚀 Calcular"):
 💰 Comissão: R$ {comissao:.2f}  
 🏆 Faixa: {faixa_nome} → R$ {bonus_faixa:.2f}  
 
-📈 Success Fee do time: {nivel_sf} (x{mult})
+📈 Success Fee do time: {nivel_sf} → R$ {bonus_sf}
 
 <h2 style="color:#3b82f6">TOTAL: R$ {total:.2f}</h2>
 
@@ -126,12 +126,13 @@ if st.button("🚀 Calcular"):
     st.subheader("👥 Resultado do Time")
 
     st.write(f"""
-    📦 Transportadoras: {total_t}  
-    📦 Embarcadores: {total_e}  
-    🔁 Coringas: {total_c}  
-    📊 Total: {total_time}  
-    🎯 Success Fee: {nivel_sf}
-    """)
+📦 Transportadoras: {total_t}  
+📦 Embarcadores: {total_e}  
+🔁 Coringas: {total_c}  
+📊 Total Contratos: {total_contratos_time}  
+📈 Success Fee: {nivel_sf}  
+💰 Bonus Time: R$ {bonus_sf}
+""")
 
     # =========================
     # RANKING

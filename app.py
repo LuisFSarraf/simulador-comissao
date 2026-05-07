@@ -148,7 +148,7 @@ with st.expander("⚙️ Configurar nomes dos vendedores", expanded=False):
     col_n1, col_n2, col_n3 = st.columns(3)
     nome1 = col_n1.text_input("Vendedor 1", value="Luis Felipe")
     nome2 = col_n2.text_input("Vendedor 2", value="Fernando")
-    nome3 = col_n3.text_input("Vendedor 3", value="Outro")
+    nome3 = col_n3.text_input("Vendedor 3", value="Mileny")
 
 nomes = [nome1, nome2, nome3]
 

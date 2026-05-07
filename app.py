@@ -1,5 +1,13 @@
+bash
+
+cat > /mnt/user-data/outputs/dashboard_comercial.py << 'ENDOFFILE'
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.patches import FancyBboxPatch
+import io
+from datetime import datetime
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
 
@@ -76,7 +84,6 @@ st.markdown("""
 # CONSTANTES
 # ─────────────────────────────────────────────────────────────────
 
-# Faixas em ordem DECRESCENTE (maior primeiro)
 FAIXAS = [
     (4, 50, 20, 1000),
     (3, 40, 16,  800),
@@ -97,17 +104,10 @@ COMISSAO_POR_CONTRATO = 50
 # FUNÇÕES DE CÁLCULO
 # ─────────────────────────────────────────────────────────────────
 
-def calcular_comissao(t: int, e: int, c: int) -> float:
-    """Pilar 1 — R$ 50 por contrato (T + E + Coringas)."""
+def calcular_comissao(t, e, c):
     return (t + e + c) * COMISSAO_POR_CONTRATO
 
-
-def calcular_melhor_faixa(t: int, e: int, c: int):
-    """
-    Pilar 2 — Bônus por faixa calculado sobre os totais do TIME.
-    Testa todas as alocações possíveis dos coringas (T ou E, nunca os dois).
-    Retorna: (bonus, nome_faixa, (t_final, e_final), (c_como_t, c_como_e))
-    """
+def calcular_melhor_faixa(t, e, c):
     melhor_bonus = 0
     melhor_nome  = "Sem faixa"
     melhor_t_fin = t
@@ -118,7 +118,6 @@ def calcular_melhor_faixa(t: int, e: int, c: int):
     for i in range(c + 1):
         t_final = t + i
         e_final = e + (c - i)
-
         for num, min_t, min_e, bonus in FAIXAS:
             if t_final >= min_t and e_final >= min_e:
                 if bonus > melhor_bonus:
@@ -132,6 +131,99 @@ def calcular_melhor_faixa(t: int, e: int, c: int):
 
     return melhor_bonus, melhor_nome, (melhor_t_fin, melhor_e_fin), (melhor_c_t, melhor_c_e)
 
+# ─────────────────────────────────────────────────────────────────
+# FUNÇÃO — GERAR IMAGEM
+# ─────────────────────────────────────────────────────────────────
+
+def gerar_imagem(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
+                 total_t, total_e, total_c, dist_time, aloc_c, total_contratos, total_geral):
+
+    n = len(resultados)
+    fig_height = 3.5 + n * 2.8
+    fig, ax = plt.subplots(figsize=(10, fig_height))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, fig_height)
+    ax.axis("off")
+    fig.patch.set_facecolor("#0f172a")
+
+    y = fig_height - 0.5
+
+    # ── Título
+    ax.text(5, y, "📊 Dashboard Comercial", ha="center", va="top",
+            fontsize=18, fontweight="bold", color="#f8fafc")
+    y -= 0.5
+    ax.text(5, y, datetime.now().strftime("Gerado em %d/%m/%Y às %H:%M"),
+            ha="center", va="top", fontsize=9, color="#64748b")
+    y -= 0.6
+
+    # ── Card do time
+    card_h = 1.4
+    rect = FancyBboxPatch((0.3, y - card_h), 9.4, card_h,
+                          boxstyle="round,pad=0.1", linewidth=1.5,
+                          edgecolor="#1d4ed8", facecolor="#0f172a")
+    ax.add_patch(rect)
+
+    c_t, c_e = aloc_c
+    coringa_txt = f"  ↳ Coringas: {c_t} como transp. · {c_e} como embarc." if total_c > 0 else ""
+    ax.text(0.7, y - 0.2,
+            f"Time: {total_t}T + {total_e}E + {total_c}C  →  {dist_time[0]}T + {dist_time[1]}E",
+            va="top", fontsize=10, color="#94a3b8")
+    ax.text(0.7, y - 0.55,
+            f"Faixa: {nome_faixa}  →  R$ {bonus_faixa:,.2f} por vendedor{coringa_txt}",
+            va="top", fontsize=10, color="#f1f5f9", fontweight="bold")
+    ax.text(0.7, y - 0.9,
+            f"Success Fee ({sf_opcao}):  R$ {bonus_sf:,.2f} por vendedor",
+            va="top", fontsize=10, color="#f1f5f9")
+    y -= card_h + 0.3
+
+    # ── Cards individuais
+    for r in resultados:
+        card_h = 2.2
+        rect = FancyBboxPatch((0.3, y - card_h), 9.4, card_h,
+                              boxstyle="round,pad=0.1", linewidth=1,
+                              edgecolor="#334155", facecolor="#1e293b")
+        ax.add_patch(rect)
+
+        ax.text(0.7, y - 0.2, r["nome"].upper(),
+                va="top", fontsize=9, color="#94a3b8", fontweight="bold")
+        ax.text(0.7, y - 0.55,
+                f"{r['contratos']} contratos  ·  {r['t']}T + {r['e']}E + {r['c']}C",
+                va="top", fontsize=11, color="#f8fafc", fontweight="bold")
+
+        ax.text(0.7, y - 0.95,
+                f"💰  Comissão:        R$ {r['comissao']:>10,.2f}",
+                va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
+        ax.text(0.7, y - 1.28,
+                f"🏆  Bônus faixa:     R$ {r['bonus_faixa']:>10,.2f}",
+                va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
+        ax.text(0.7, y - 1.61,
+                f"📈  Success fee:     R$ {r['bonus_sf']:>10,.2f}",
+                va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
+
+        # linha separadora
+        ax.plot([0.7, 9.7], [y - 1.82, y - 1.82], color="#334155", linewidth=0.8)
+
+        ax.text(0.7, y - 2.0, f"TOTAL",
+                va="top", fontsize=12, color="#38bdf8", fontweight="bold")
+        ax.text(9.7, y - 2.0, f"R$ {r['total']:,.2f}",
+                ha="right", va="top", fontsize=13, color="#38bdf8", fontweight="bold")
+
+        y -= card_h + 0.25
+
+    # ── Rodapé total geral
+    ax.text(0.7, y - 0.1, f"Total pago ao time:",
+            va="top", fontsize=10, color="#64748b")
+    ax.text(9.7, y - 0.1, f"R$ {total_geral:,.2f}",
+            ha="right", va="top", fontsize=11, color="#64748b", fontweight="bold")
+
+    plt.tight_layout(pad=0.5)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight",
+                facecolor=fig.get_facecolor())
+    buf.seek(0)
+    plt.close(fig)
+    return buf
 
 # ─────────────────────────────────────────────────────────────────
 # INTERFACE — CABEÇALHO
@@ -148,7 +240,7 @@ with st.expander("⚙️ Configurar nomes dos vendedores", expanded=False):
     col_n1, col_n2, col_n3 = st.columns(3)
     nome1 = col_n1.text_input("Vendedor 1", value="Luis Felipe")
     nome2 = col_n2.text_input("Vendedor 2", value="Fernando")
-    nome3 = col_n3.text_input("Vendedor 3", value="Mileny")
+    nome3 = col_n3.text_input("Vendedor 3", value="Outro")
 
 nomes = [nome1, nome2, nome3]
 
@@ -185,7 +277,6 @@ for idx, (col, nome) in enumerate(zip(colunas, nomes)):
 
 if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary"):
 
-    # ── Totais do time (usados para calcular faixa) ──────────────
     total_t = sum(d[1] for d in dados_input)
     total_e = sum(d[2] for d in dados_input)
     total_c = sum(d[3] for d in dados_input)
@@ -194,7 +285,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
 
     st.markdown("---")
 
-    # ── Resultado do time (faixa) ────────────────────────────────
+    # ── Faixa do time
     st.subheader("👥 Faixa do Time")
 
     if nome_faixa == "Sem faixa":
@@ -217,7 +308,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Resultados individuais ───────────────────────────────────
+    # ── Resultados individuais
     st.subheader("💰 Resultado Individual")
 
     resultados = []
@@ -226,8 +317,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
         total    = comissao + bonus_faixa + bonus_sf
 
         resultados.append({
-            "nome":        nome,
-            "t": t, "e": e, "c": c,
+            "nome": nome, "t": t, "e": e, "c": c,
             "contratos":   t + e + c,
             "comissao":    comissao,
             "bonus_faixa": bonus_faixa,
@@ -236,10 +326,8 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
             "total":       total,
         })
 
-        if nome_faixa == "Sem faixa":
-            tag = '<span class="tag-sem-faixa">Sem faixa</span>'
-        else:
-            tag = f'<span class="tag-faixa">{nome_faixa}</span>'
+        tag = '<span class="tag-sem-faixa">Sem faixa</span>' if nome_faixa == "Sem faixa" \
+              else f'<span class="tag-faixa">{nome_faixa}</span>'
 
         st.markdown(f"""
 <div class="card">
@@ -252,7 +340,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Resumo do time ───────────────────────────────────────────
+    # ── Resumo financeiro
     total_contratos = sum(r["contratos"] for r in resultados)
     total_geral     = sum(r["total"]     for r in resultados)
 
@@ -264,7 +352,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Ranking ──────────────────────────────────────────────────
+    # ── Ranking
     st.subheader("🏆 Ranking")
 
     df = pd.DataFrame([{
@@ -291,7 +379,7 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
         use_container_width=True,
     )
 
-    # ── Tabela de referência ─────────────────────────────────────
+    # ── Tabela de faixas
     with st.expander("📖 Tabela de Faixas", expanded=False):
         df_faixas = pd.DataFrame([{
             "Faixa": f"Faixa {num}",
@@ -300,3 +388,31 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
             "Bônus por vendedor (R$)": f"R$ {bonus:,.2f}",
         } for num, min_t, min_e, bonus in reversed(FAIXAS)])
         st.dataframe(df_faixas, use_container_width=True, hide_index=True)
+
+    # ─────────────────────────────────────────────────────────────
+    # EXPORTAR IMAGEM
+    # ─────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("📸 Compartilhar Resultado")
+
+    img_buf = gerar_imagem(
+        resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
+        total_t, total_e, total_c, dist_time, aloc_c,
+        total_contratos, total_geral
+    )
+
+    # Preview da imagem
+    st.image(img_buf, caption="Preview do resultado", use_container_width=True)
+    img_buf.seek(0)
+
+    # Botão de download
+    nome_arquivo = f"resultado_comercial_{datetime.now().strftime('%d%m%Y_%H%M')}.png"
+    st.download_button(
+        label="⬇️ Baixar imagem (PNG)",
+        data=img_buf,
+        file_name=nome_arquivo,
+        mime="image/png",
+        use_container_width=True,
+    )
+ENDOFFILE
+echo "OK"

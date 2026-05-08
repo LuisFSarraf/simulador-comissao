@@ -250,7 +250,7 @@ if calcular:
     n1, t1, e1, c1 = dados_input[1][0], dados_input[1][1], dados_input[1][2], dados_input[1][3]
     n2, t2, e2, c2 = dados_input[2][0], dados_input[2][1], dados_input[2][2], dados_input[2][3]
 
-    base_url = st.query_params.get("_base_url", "https://seu-app.streamlit.app")
+    base_url = st.query_params.get("_base_url", "https://simulador-comissao-skvzytjvfrfm3qsaqghxvw.streamlit.app")
 
     link = (
         f"{base_url}?"
@@ -263,4 +263,4 @@ if calcular:
     st.info("🔗 Copie o link abaixo e envie para quem quiser visualizar o resultado. Ao abrir, os dados já estarão preenchidos e calculados automaticamente.")
     st.code(link, language=None)
 
-    st.caption("⚠️ Substitua `https://seu-app.streamlit.app` pela URL real do seu app no Streamlit Cloud.")
+    st.caption("⚠️ Substitua `https://simulador-comissao-skvzytjvfrfm3qsaqghxvw.streamlit.app` pela URL real do seu app no Streamlit Cloud.")

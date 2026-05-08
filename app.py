@@ -1,13 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
-import io
-import smtplib
-import ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
 from datetime import datetime
 
 st.set_page_config(page_title="Dashboard Comercial", layout="wide")
@@ -83,178 +75,33 @@ def calcular_melhor_faixa(t, e, c):
     return melhor_bonus, melhor_nome, (melhor_t_fin, melhor_e_fin), (melhor_c_t, melhor_c_e)
 
 # ─────────────────────────────────────────────────────────────────
-# FUNÇÃO — GERAR IMAGEM PNG
+# LEITURA DE QUERY PARAMS (link compartilhado)
 # ─────────────────────────────────────────────────────────────────
 
-def gerar_imagem(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
-                 total_t, total_e, total_c, dist_time, aloc_c, total_contratos, total_geral):
-    n = len(resultados)
-    fig_height = 3.5 + n * 2.8
-    fig, ax = plt.subplots(figsize=(10, fig_height))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, fig_height)
-    ax.axis("off")
-    fig.patch.set_facecolor("#0f172a")
+params = st.query_params
 
-    y = fig_height - 0.5
-    ax.text(5, y, "Dashboard Comercial", ha="center", va="top",
-            fontsize=18, fontweight="bold", color="#f8fafc")
-    y -= 0.5
-    ax.text(5, y, datetime.now().strftime("Gerado em %d/%m/%Y às %H:%M"),
-            ha="center", va="top", fontsize=9, color="#64748b")
-    y -= 0.6
+def get_param(key, default):
+    val = params.get(key, default)
+    try:
+        return int(val)
+    except:
+        return val
 
-    card_h = 1.4
-    rect = FancyBboxPatch((0.3, y - card_h), 9.4, card_h,
-                          boxstyle="round,pad=0.1", linewidth=1.5,
-                          edgecolor="#1d4ed8", facecolor="#0f172a")
-    ax.add_patch(rect)
-    c_t, c_e = aloc_c
-    coringa_txt = f"  ↳ Coringas: {c_t} como transp. · {c_e} como embarc." if total_c > 0 else ""
-    ax.text(0.7, y - 0.2, f"Time: {total_t}T + {total_e}E + {total_c}C  →  {dist_time[0]}T + {dist_time[1]}E",
-            va="top", fontsize=10, color="#94a3b8")
-    ax.text(0.7, y - 0.55, f"Faixa: {nome_faixa}  →  R$ {bonus_faixa:,.2f} por vendedor{coringa_txt}",
-            va="top", fontsize=10, color="#f1f5f9", fontweight="bold")
-    ax.text(0.7, y - 0.9, f"Success Fee ({sf_opcao}):  R$ {bonus_sf:,.2f} por vendedor",
-            va="top", fontsize=10, color="#f1f5f9")
-    y -= card_h + 0.3
-
-    for r in resultados:
-        card_h = 2.2
-        rect = FancyBboxPatch((0.3, y - card_h), 9.4, card_h,
-                              boxstyle="round,pad=0.1", linewidth=1,
-                              edgecolor="#334155", facecolor="#1e293b")
-        ax.add_patch(rect)
-        ax.text(0.7, y - 0.2, r["nome"].upper(), va="top", fontsize=9, color="#94a3b8", fontweight="bold")
-        ax.text(0.7, y - 0.55, f"{r['contratos']} contratos  ·  {r['t']}T + {r['e']}E + {r['c']}C",
-                va="top", fontsize=11, color="#f8fafc", fontweight="bold")
-        ax.text(0.7, y - 0.95,  f"Comissão:       R$ {r['comissao']:>10,.2f}", va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
-        ax.text(0.7, y - 1.28, f"Bônus faixa:    R$ {r['bonus_faixa']:>10,.2f}", va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
-        ax.text(0.7, y - 1.61, f"Success fee:    R$ {r['bonus_sf']:>10,.2f}",   va="top", fontsize=10, color="#e2e8f0", fontfamily="monospace")
-        ax.plot([0.7, 9.7], [y - 1.82, y - 1.82], color="#334155", linewidth=0.8)
-        ax.text(0.7, y - 2.0, "TOTAL", va="top", fontsize=12, color="#38bdf8", fontweight="bold")
-        ax.text(9.7, y - 2.0, f"R$ {r['total']:,.2f}", ha="right", va="top", fontsize=13, color="#38bdf8", fontweight="bold")
-        y -= card_h + 0.25
-
-    ax.text(0.7, y - 0.1, "Total pago ao time:", va="top", fontsize=10, color="#64748b")
-    ax.text(9.7, y - 0.1, f"R$ {total_geral:,.2f}", ha="right", va="top", fontsize=11, color="#64748b", fontweight="bold")
-
-    plt.tight_layout(pad=0.5)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
-    buf.seek(0)
-    plt.close(fig)
-    return buf
-
-# ─────────────────────────────────────────────────────────────────
-# FUNÇÃO — MONTAR CORPO DO E-MAIL (HTML)
-# ─────────────────────────────────────────────────────────────────
-
-def montar_corpo_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
-                       total_contratos, total_geral, mensagem_extra):
-    mes_ano = datetime.now().strftime("%B/%Y").capitalize()
-    linhas_vendedores = ""
-    for r in resultados:
-        linhas_vendedores += f"""
-        <tr>
-          <td style="padding:10px 14px;color:#f1f5f9;font-weight:600">{r['nome']}</td>
-          <td style="padding:10px 14px;color:#94a3b8;text-align:center">{r['contratos']}</td>
-          <td style="padding:10px 14px;color:#94a3b8;text-align:right">R$ {r['comissao']:,.2f}</td>
-          <td style="padding:10px 14px;color:#94a3b8;text-align:center">{r['nome_faixa']}</td>
-          <td style="padding:10px 14px;color:#38bdf8;text-align:right;font-weight:700">R$ {r['total']:,.2f}</td>
-        </tr>"""
-
-    html = f"""
-    <html><body style="margin:0;padding:0;background:#0f172a;font-family:Arial,sans-serif">
-    <div style="max-width:640px;margin:32px auto;background:#1e293b;border-radius:16px;overflow:hidden;border:1px solid #334155">
-
-      <!-- Cabeçalho -->
-      <div style="background:#1d4ed8;padding:28px 32px">
-        <h1 style="margin:0;color:white;font-size:22px">📊 Resultado Comercial — {mes_ano}</h1>
-        <p style="margin:6px 0 0 0;color:#bfdbfe;font-size:13px">
-          Gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}
-        </p>
-      </div>
-
-      <!-- Mensagem personalizada -->
-      <div style="padding:24px 32px 0 32px">
-        <p style="color:#e2e8f0;font-size:15px;line-height:1.6;margin:0">
-          {mensagem_extra}
-        </p>
-      </div>
-
-      <!-- Resumo do time -->
-      <div style="padding:20px 32px">
-        <div style="background:#0f172a;border-radius:12px;padding:16px 20px;border:1px solid #1d4ed8">
-          <p style="margin:0 0 6px 0;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:1px">Resultado do Time</p>
-          <p style="margin:4px 0;color:#f1f5f9;font-size:14px">
-            🏆 Faixa atingida: <strong style="color:white">{nome_faixa}</strong>
-            &nbsp;→&nbsp; <strong>R$ {bonus_faixa:,.2f}</strong> por vendedor
-          </p>
-          <p style="margin:4px 0;color:#f1f5f9;font-size:14px">
-            📈 Success Fee ({sf_opcao}): <strong>R$ {bonus_sf:,.2f}</strong> por vendedor
-          </p>
-          <p style="margin:4px 0;color:#f1f5f9;font-size:14px">
-            📦 Total de contratos: <strong>{total_contratos}</strong>
-            &nbsp;·&nbsp; 💵 Total pago ao time: <strong style="color:#38bdf8">R$ {total_geral:,.2f}</strong>
-          </p>
-        </div>
-      </div>
-
-      <!-- Tabela individual -->
-      <div style="padding:0 32px 24px 32px">
-        <table style="width:100%;border-collapse:collapse;background:#0f172a;border-radius:12px;overflow:hidden">
-          <thead>
-            <tr style="background:#1e3a5f">
-              <th style="padding:10px 14px;color:#94a3b8;text-align:left;font-size:12px">Vendedor</th>
-              <th style="padding:10px 14px;color:#94a3b8;text-align:center;font-size:12px">Contratos</th>
-              <th style="padding:10px 14px;color:#94a3b8;text-align:right;font-size:12px">Comissão</th>
-              <th style="padding:10px 14px;color:#94a3b8;text-align:center;font-size:12px">Faixa</th>
-              <th style="padding:10px 14px;color:#94a3b8;text-align:right;font-size:12px">Total</th>
-            </tr>
-          </thead>
-          <tbody>{linhas_vendedores}</tbody>
-        </table>
-      </div>
-
-      <!-- Rodapé -->
-      <div style="padding:16px 32px;border-top:1px solid #334155;text-align:center">
-        <p style="margin:0;color:#475569;font-size:12px">
-          Este e-mail foi gerado automaticamente pelo Dashboard Comercial.
-        </p>
-      </div>
-    </div>
-    </body></html>
-    """
-    return html
-
-# ─────────────────────────────────────────────────────────────────
-# FUNÇÃO — ENVIAR E-MAIL VIA SMTP (Outlook/Corporativo)
-# ─────────────────────────────────────────────────────────────────
-
-def enviar_email(remetente, senha, destinatarios, assunto, corpo_html, img_buf, servidor_smtp, porta):
-    msg = MIMEMultipart("related")
-    msg["From"]    = remetente
-    msg["To"]      = ", ".join(destinatarios)
-    msg["Subject"] = assunto
-
-    # Parte alternativa (HTML)
-    alternativa = MIMEMultipart("alternative")
-    msg.attach(alternativa)
-    alternativa.attach(MIMEText(corpo_html, "html", "utf-8"))
-
-    # Imagem como anexo
-    img_buf.seek(0)
-    img_anexo = MIMEImage(img_buf.read(), name="resultado_comercial.png")
-    img_anexo.add_header("Content-Disposition", "attachment", filename="resultado_comercial.png")
-    msg.attach(img_anexo)
-
-    contexto = ssl.create_default_context()
-    with smtplib.SMTP(servidor_smtp, porta) as server:
-        server.ehlo()
-        server.starttls(context=contexto)
-        server.login(remetente, senha)
-        server.sendmail(remetente, destinatarios, msg.as_string())
+# Pré-carrega valores da URL se existirem
+pre_sf   = params.get("sf", "0%")
+pre_t0   = get_param("t0", 0)
+pre_e0   = get_param("e0", 0)
+pre_c0   = get_param("c0", 0)
+pre_t1   = get_param("t1", 0)
+pre_e1   = get_param("e1", 0)
+pre_c1   = get_param("c1", 0)
+pre_t2   = get_param("t2", 0)
+pre_e2   = get_param("e2", 0)
+pre_c2   = get_param("c2", 0)
+pre_n0   = params.get("n0", "Luis Felipe")
+pre_n1   = params.get("n1", "Fernando")
+pre_n2   = params.get("n2", "Outro")
+auto_run = params.get("run", "0") == "1"
 
 # ─────────────────────────────────────────────────────────────────
 # INTERFACE — CABEÇALHO
@@ -269,14 +116,16 @@ st.caption("Comissão por contrato (individual) · Bônus por faixa (time) · Su
 
 with st.expander("⚙️ Configurar nomes dos vendedores", expanded=False):
     col_n1, col_n2, col_n3 = st.columns(3)
-    nome1 = col_n1.text_input("Vendedor 1", value="Luis Felipe")
-    nome2 = col_n2.text_input("Vendedor 2", value="Fernando")
-    nome3 = col_n3.text_input("Vendedor 3", value="Outro")
+    nome1 = col_n1.text_input("Vendedor 1", value=pre_n0)
+    nome2 = col_n2.text_input("Vendedor 2", value=pre_n1)
+    nome3 = col_n3.text_input("Vendedor 3", value=pre_n2)
 
 nomes = [nome1, nome2, nome3]
 
-sf_opcao = st.selectbox("📈 Success Fee do Time", list(SUCCESS_FEE_MAP.keys()),
-    help="Meta do time atingida. Bônus pago integralmente a cada vendedor, sem rateio.")
+sf_opcoes = list(SUCCESS_FEE_MAP.keys())
+sf_index  = sf_opcoes.index(pre_sf) if pre_sf in sf_opcoes else 0
+sf_opcao  = st.selectbox("📈 Success Fee do Time", sf_opcoes, index=sf_index,
+                help="Meta do time atingida. Bônus pago integralmente a cada vendedor, sem rateio.")
 bonus_sf, sf_descricao = SUCCESS_FEE_MAP[sf_opcao]
 
 # ─────────────────────────────────────────────────────────────────
@@ -288,13 +137,18 @@ st.subheader("📋 Contratos por Vendedor")
 
 col1, col2, col3 = st.columns(3)
 dados_input = []
+defaults = [
+    (pre_t0, pre_e0, pre_c0),
+    (pre_t1, pre_e1, pre_c1),
+    (pre_t2, pre_e2, pre_c2),
+]
 
-for idx, (col, nome) in enumerate(zip([col1, col2, col3], nomes)):
+for idx, (col, nome, (dt, de, dc)) in enumerate(zip([col1, col2, col3], nomes, defaults)):
     with col:
         st.markdown(f"**{nome}**")
-        t = int(st.number_input("Transportadoras", min_value=0, step=1, key=f"t_{idx}"))
-        e = int(st.number_input("Embarcadores",    min_value=0, step=1, key=f"e_{idx}"))
-        c = int(st.number_input("Coringas",        min_value=0, step=1, key=f"c_{idx}",
+        t = int(st.number_input("Transportadoras", min_value=0, step=1, value=dt, key=f"t_{idx}"))
+        e = int(st.number_input("Embarcadores",    min_value=0, step=1, value=de, key=f"e_{idx}"))
+        c = int(st.number_input("Coringas",        min_value=0, step=1, value=dc, key=f"c_{idx}",
                                 help="Alocado como T ou E para maximizar a faixa do time."))
         dados_input.append((nome, t, e, c))
 
@@ -302,8 +156,9 @@ for idx, (col, nome) in enumerate(zip([col1, col2, col3], nomes)):
 # CÁLCULO
 # ─────────────────────────────────────────────────────────────────
 
-if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary"):
+calcular = st.button("🚀 Calcular Comissões", use_container_width=True, type="primary") or auto_run
 
+if calcular:
     total_t = sum(d[1] for d in dados_input)
     total_e = sum(d[2] for d in dados_input)
     total_c = sum(d[3] for d in dados_input)
@@ -385,106 +240,27 @@ if st.button("🚀 Calcular Comissões", use_container_width=True, type="primary
         } for num, min_t, min_e, bonus in reversed(FAIXAS)]), use_container_width=True, hide_index=True)
 
     # ─────────────────────────────────────────────────────────────
-    # EXPORTAR IMAGEM
+    # COMPARTILHAR VIA LINK
     # ─────────────────────────────────────────────────────────────
     st.markdown("---")
-    st.subheader("📸 Compartilhar Resultado")
+    st.subheader("🔗 Compartilhar via Link")
 
-    img_buf = gerar_imagem(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
-                           total_t, total_e, total_c, dist_time, aloc_c,
-                           total_contratos, total_geral)
+    # Monta os query params com todos os valores atuais
+    n0, t0, e0, c0 = dados_input[0][0], dados_input[0][1], dados_input[0][2], dados_input[0][3]
+    n1, t1, e1, c1 = dados_input[1][0], dados_input[1][1], dados_input[1][2], dados_input[1][3]
+    n2, t2, e2, c2 = dados_input[2][0], dados_input[2][1], dados_input[2][2], dados_input[2][3]
 
-    st.image(img_buf, caption="Preview do resultado", use_container_width=True)
-    img_buf.seek(0)
+    base_url = st.query_params.get("_base_url", "https://seu-app.streamlit.app")
 
-    nome_arquivo = f"resultado_comercial_{datetime.now().strftime('%d%m%Y_%H%M')}.png"
-    st.download_button(
-        label="⬇️ Baixar imagem (PNG)",
-        data=img_buf,
-        file_name=nome_arquivo,
-        mime="image/png",
-        use_container_width=True,
+    link = (
+        f"{base_url}?"
+        f"sf={sf_opcao}&run=1"
+        f"&n0={n0}&t0={t0}&e0={e0}&c0={c0}"
+        f"&n1={n1}&t1={t1}&e1={e1}&c1={c1}"
+        f"&n2={n2}&t2={t2}&e2={e2}&c2={c2}"
     )
 
-    # ─────────────────────────────────────────────────────────────
-    # ENVIO DE E-MAIL
-    # ─────────────────────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("✉️ Enviar por E-mail")
+    st.info("🔗 Copie o link abaixo e envie para quem quiser visualizar o resultado. Ao abrir, os dados já estarão preenchidos e calculados automaticamente.")
+    st.code(link, language=None)
 
-    with st.expander("⚙️ Configurações de E-mail", expanded=True):
-        st.caption("Suas credenciais são usadas apenas nesta sessão e nunca são salvas.")
-
-        col_smtp1, col_smtp2 = st.columns(2)
-        servidor_smtp = col_smtp1.text_input("Servidor SMTP", value="smtp.office365.com",
-                            help="Outlook/Office365: smtp.office365.com | Gmail: smtp.gmail.com")
-        porta_smtp    = col_smtp2.number_input("Porta", value=587, min_value=1, max_value=9999)
-
-        col_e1, col_e2 = st.columns(2)
-        email_remetente = col_e1.text_input("Seu e-mail (remetente)")
-        senha_email     = col_e2.text_input("Senha / App Password", type="password",
-                            help="Para Office365 use sua senha normal. Para Gmail use uma 'App Password'.")
-
-        destinatarios_raw = st.text_input(
-            "Destinatários",
-            placeholder="email1@empresa.com, email2@empresa.com",
-            help="Separe múltiplos e-mails por vírgula."
-        )
-
-        assunto_email = st.text_input(
-            "Assunto",
-            value=f"Resultado Comercial — {datetime.now().strftime('%B/%Y').capitalize()}"
-        )
-
-        mensagem_extra = st.text_area(
-            "Mensagem personalizada",
-            value="Olá, segue o resultado comercial do mês. Em anexo você encontrará o resumo detalhado com as comissões individuais, faixa atingida pelo time e bônus de success fee.",
-            height=100
-        )
-
-    if st.button("📧 Enviar E-mail", use_container_width=True, type="primary"):
-        # Validações
-        erros = []
-        if not email_remetente:
-            erros.append("Informe o e-mail remetente.")
-        if not senha_email:
-            erros.append("Informe a senha.")
-        if not destinatarios_raw.strip():
-            erros.append("Informe pelo menos um destinatário.")
-
-        if erros:
-            for e in erros:
-                st.error(e)
-        else:
-            destinatarios = [d.strip() for d in destinatarios_raw.split(",") if d.strip()]
-            corpo_html = montar_corpo_email(
-                resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
-                total_contratos, total_geral, mensagem_extra
-            )
-
-            # Gera nova cópia da imagem para o e-mail
-            img_email = gerar_imagem(
-                resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
-                total_t, total_e, total_c, dist_time, aloc_c,
-                total_contratos, total_geral
-            )
-
-            try:
-                with st.spinner("Enviando e-mail..."):
-                    enviar_email(
-                        remetente=email_remetente,
-                        senha=senha_email,
-                        destinatarios=destinatarios,
-                        assunto=assunto_email,
-                        corpo_html=corpo_html,
-                        img_buf=img_email,
-                        servidor_smtp=servidor_smtp,
-                        porta=int(porta_smtp),
-                    )
-                st.success(f"✅ E-mail enviado com sucesso para: {', '.join(destinatarios)}")
-            except smtplib.SMTPAuthenticationError:
-                st.error("❌ Falha na autenticação. Verifique seu e-mail e senha.")
-            except smtplib.SMTPConnectError:
-                st.error(f"❌ Não foi possível conectar ao servidor {servidor_smtp}:{int(porta_smtp)}.")
-            except Exception as ex:
-                st.error(f"❌ Erro ao enviar: {ex}")
+    st.caption("⚠️ Substitua `https://seu-app.streamlit.app` pela URL real do seu app no Streamlit Cloud.")

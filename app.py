@@ -269,8 +269,8 @@ def enviar_email(remetente, senha, destinatarios, assunto, corpo_html):
     msg["From"] = remetente; msg["To"] = ", ".join(destinatarios); msg["Subject"] = assunto
     msg.attach(MIMEText(corpo_html, "html", "utf-8"))
     ctx = ssl.create_default_context()
-    with smtplib.SMTP("smtp.office365.com", 587) as s:
-        s.ehlo(); s.starttls(context=ctx); s.login(remetente, senha)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+        s.login(remetente, senha)
         s.sendmail(remetente, destinatarios, msg.as_string())
 
 def bloco_email(key_prefix, periodo_label):

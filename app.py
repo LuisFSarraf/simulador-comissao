@@ -1,6 +1,3 @@
-bash
-
-cat > /mnt/user-data/outputs/dashboard_comercial.py << 'ENDOFFILE'
 import streamlit as st
 import pandas as pd
 import requests
@@ -64,9 +61,8 @@ st.markdown("""
 # FUNÇÕES — PIPEDRIVE API
 # ─────────────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=300)  # cache de 5 minutos
+@st.cache_data(ttl=300)
 def buscar_usuarios_pipedrive():
-    """Retorna dict {email: user_id} de todos os usuários."""
     r = requests.get(f"{PIPEDRIVE_BASE}/users", params={"api_token": PIPEDRIVE_TOKEN})
     usuarios = {}
     if r.ok:
@@ -76,7 +72,6 @@ def buscar_usuarios_pipedrive():
 
 @st.cache_data(ttl=300)
 def buscar_produtos_do_negocio(deal_id):
-    """Retorna lista de nomes de produtos de um negócio."""
     r = requests.get(
         f"{PIPEDRIVE_BASE}/deals/{deal_id}/products",
         params={"api_token": PIPEDRIVE_TOKEN}
@@ -87,27 +82,23 @@ def buscar_produtos_do_negocio(deal_id):
 
 @st.cache_data(ttl=300)
 def buscar_negocios_ganhos(user_id, data_inicio, data_fim):
-    """Busca todos os negócios ganhos de um vendedor no período."""
     negocios = []
     start = 0
     while True:
         r = requests.get(f"{PIPEDRIVE_BASE}/deals", params={
-            "api_token":  PIPEDRIVE_TOKEN,
-            "status":     "won",
-            "user_id":    user_id,
-            "start":      start,
-            "limit":      100,
+            "api_token": PIPEDRIVE_TOKEN,
+            "status":    "won",
+            "user_id":   user_id,
+            "start":     start,
+            "limit":     100,
         })
         if not r.ok:
             break
         data = r.json().get("data") or []
         for deal in data:
-            won_date = deal.get("won_time", "") or ""
-            if won_date:
-                dt = won_date[:10]  # "YYYY-MM-DD"
-                if data_inicio <= dt <= data_fim:
-                    negocios.append(deal)
-        # paginação
+            won_date = (deal.get("won_time") or "")[:10]
+            if data_inicio <= won_date <= data_fim:
+                negocios.append(deal)
         pagination = r.json().get("additional_data", {}).get("pagination", {})
         if pagination.get("more_items_in_collection"):
             start += 100
@@ -116,40 +107,33 @@ def buscar_negocios_ganhos(user_id, data_inicio, data_fim):
     return negocios
 
 def classificar_negocio(deal_id):
-    """
-    Retorna 't', 'e' ou 'c' conforme os produtos do negócio.
-    Coringa = tem os dois produtos ao mesmo tempo.
-    """
-    produtos = buscar_produtos_do_negocio(deal_id)
+    produtos   = buscar_produtos_do_negocio(deal_id)
     tem_transp = any(PRODUTO_TRANSP in p for p in produtos)
     tem_emb    = any(PRODUTO_EMB    in p for p in produtos)
-
     if tem_transp and tem_emb:
-        return "c"   # coringa
+        return "c"
     elif tem_transp:
         return "t"
     elif tem_emb:
         return "e"
-    return None      # produto não reconhecido
+    return None
 
 def contabilizar_vendedor(email, data_inicio, data_fim):
-    """Retorna (t, e, c) para um vendedor no período."""
     usuarios = buscar_usuarios_pipedrive()
     user_id  = usuarios.get(email.lower())
     if not user_id:
         return 0, 0, 0
-
     negocios = buscar_negocios_ganhos(user_id, data_inicio, data_fim)
     t = e = c = 0
     for deal in negocios:
         tipo = classificar_negocio(deal["id"])
-        if tipo == "t": t += 1
+        if tipo == "t":   t += 1
         elif tipo == "e": e += 1
         elif tipo == "c": c += 1
     return t, e, c
 
 # ─────────────────────────────────────────────────────────────────
-# FUNÇÕES — CÁLCULO DE COMISSÃO
+# FUNÇÕES — CÁLCULO
 # ─────────────────────────────────────────────────────────────────
 
 def calcular_comissao(t, e, c):
@@ -188,7 +172,6 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
 
     bonus_faixa, nome_faixa, dist_time, aloc_c = calcular_melhor_faixa(total_t, total_e, total_c)
 
-    # ── Faixa do time
     st.subheader("👥 Faixa do Time")
     tag_time = '<span class="tag-sem-faixa">Sem faixa</span>' if nome_faixa == "Sem faixa" \
                else f'<span class="tag-faixa">{nome_faixa}</span>'
@@ -204,7 +187,6 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Individuais
     st.subheader("💰 Resultado Individual")
     resultados = []
     for nome, t, e, c in dados_input:
@@ -240,7 +222,6 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
 </div>
 """, unsafe_allow_html=True)
 
-    # ── Ranking
     st.subheader("🏆 Ranking")
     df = pd.DataFrame([{
         "Vendedor": r["nome"], "Contratos": r["contratos"],
@@ -248,18 +229,18 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
         "Bônus Faixa (R$)": r["bonus_faixa"], "Success Fee (R$)": r["bonus_sf"],
         "Total (R$)": r["total"],
     } for r in resultados]).sort_values("Total (R$)", ascending=False).reset_index(drop=True)
-    df.index += 1; df.index.name = "Pos."
+    df.index += 1
+    df.index.name = "Pos."
     st.dataframe(df.style.format({
         "Comissão (R$)": "R$ {:,.2f}", "Bônus Faixa (R$)": "R$ {:,.2f}",
         "Success Fee (R$)": "R$ {:,.2f}", "Total (R$)": "R$ {:,.2f}",
     }), use_container_width=True)
 
-    # ── Link de compartilhamento
     st.markdown("---")
     st.subheader("🔗 Compartilhar via Link")
     base_url = "https://simulador-comissao-skvzytjvfrfm3qsaqghxvw.streamlit.app"
-    n0,t0,e0,c0 = dados_input[0]
-    n1,t1,e1,c1 = dados_input[1]
+    n0, t0, e0, c0 = dados_input[0]
+    n1, t1, e1, c1 = dados_input[1]
     link = (f"{base_url}?sf={sf_opcao}&run=1"
             f"&n0={n0}&t0={t0}&e0={e0}&c0={c0}"
             f"&n1={n1}&t1={t1}&e1={e1}&c1={c1}")
@@ -269,7 +250,7 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
     return resultados, total_contratos, total_geral, bonus_faixa, nome_faixa
 
 # ─────────────────────────────────────────────────────────────────
-# FUNÇÃO — ENVIAR E-MAIL (Outlook)
+# FUNÇÃO — E-MAIL
 # ─────────────────────────────────────────────────────────────────
 
 def montar_email_html(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
@@ -284,24 +265,23 @@ def montar_email_html(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
           <td style="padding:10px 14px;color:#94a3b8;text-align:center">{r['nome_faixa']}</td>
           <td style="padding:10px 14px;color:#38bdf8;text-align:right;font-weight:700">R$ {r['total']:,.2f}</td>
         </tr>"""
-
     return f"""
 <html><body style="margin:0;padding:0;background:#0f172a;font-family:Arial,sans-serif">
 <div style="max-width:640px;margin:32px auto;background:#1e293b;border-radius:16px;overflow:hidden;border:1px solid #334155">
   <div style="background:#1d4ed8;padding:28px 32px">
-    <h1 style="margin:0;color:white;font-size:22px">📊 Resultado Comercial</h1>
+    <h1 style="margin:0;color:white;font-size:22px">Dashboard Comercial</h1>
     <p style="margin:6px 0 0 0;color:#bfdbfe;font-size:13px">{periodo_label} · Gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}</p>
   </div>
   <div style="padding:24px 32px 0 32px">
     <p style="color:#e2e8f0;font-size:15px;line-height:1.6;margin:0">
-      Olá! Segue o resultado comercial do período. Abaixo você encontra o resumo com comissões individuais, faixa do time e bônus de success fee.
+      Olá! Segue o resultado comercial do período com comissões individuais, faixa do time e bônus de success fee.
     </p>
   </div>
   <div style="padding:20px 32px">
     <div style="background:#0f172a;border-radius:12px;padding:16px 20px;border:1px solid #1d4ed8">
-      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">🏆 Faixa: <strong>{nome_faixa}</strong> → R$ {bonus_faixa:,.2f} por vendedor</p>
-      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">📈 Success Fee ({sf_opcao}): R$ {bonus_sf:,.2f} por vendedor</p>
-      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">📦 Total contratos: <strong>{total_contratos}</strong> · 💵 Total ao time: <strong style="color:#38bdf8">R$ {total_geral:,.2f}</strong></p>
+      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">Faixa: <strong>{nome_faixa}</strong> → R$ {bonus_faixa:,.2f} por vendedor</p>
+      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">Success Fee ({sf_opcao}): R$ {bonus_sf:,.2f} por vendedor</p>
+      <p style="margin:4px 0;color:#f1f5f9;font-size:14px">Total contratos: <strong>{total_contratos}</strong> · Total ao time: <strong style="color:#38bdf8">R$ {total_geral:,.2f}</strong></p>
     </div>
   </div>
   <div style="padding:0 32px 24px 32px">
@@ -332,8 +312,37 @@ def enviar_email(remetente, senha, destinatarios, assunto, corpo_html, servidor,
     msg.attach(MIMEText(corpo_html, "html", "utf-8"))
     ctx = ssl.create_default_context()
     with smtplib.SMTP(servidor, porta) as s:
-        s.ehlo(); s.starttls(context=ctx); s.login(remetente, senha)
+        s.ehlo()
+        s.starttls(context=ctx)
+        s.login(remetente, senha)
         s.sendmail(remetente, destinatarios, msg.as_string())
+
+def bloco_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
+                total_contratos, total_geral, periodo_label, key_prefix):
+    st.markdown("---")
+    st.subheader("✉️ Enviar Resultado por E-mail")
+    with st.expander("Configurações de e-mail", expanded=False):
+        col1, col2 = st.columns(2)
+        email_rem = col1.text_input("Remetente", placeholder="seu@empresa.com", key=f"rem_{key_prefix}")
+        senha_rem = col2.text_input("Senha",     type="password",               key=f"sen_{key_prefix}")
+        destinat  = st.text_input("Destinatários (separar por vírgula)",         key=f"dst_{key_prefix}")
+        assunto   = st.text_input("Assunto", value=f"Resultado Comercial — {periodo_label}", key=f"ass_{key_prefix}")
+    if st.button("Enviar E-mail", key=f"btn_email_{key_prefix}", use_container_width=True):
+        if not email_rem or not senha_rem or not destinat:
+            st.error("Preencha remetente, senha e destinatários.")
+        else:
+            corpo = montar_email_html(resultados, nome_faixa, bonus_faixa, sf_opcao,
+                                      bonus_sf, total_contratos, total_geral, periodo_label)
+            try:
+                with st.spinner("Enviando..."):
+                    enviar_email(email_rem, senha_rem,
+                                 [d.strip() for d in destinat.split(",")],
+                                 assunto, corpo, "smtp.office365.com", 587)
+                st.success("E-mail enviado com sucesso!")
+            except smtplib.SMTPAuthenticationError:
+                st.error("Falha na autenticação. Verifique e-mail e senha.")
+            except Exception as ex:
+                st.error(f"Erro: {ex}")
 
 # ─────────────────────────────────────────────────────────────────
 # INTERFACE
@@ -342,27 +351,20 @@ def enviar_email(remetente, senha, destinatarios, assunto, corpo_html, servidor,
 st.title("📊 Dashboard Comercial")
 st.caption("Integrado ao Pipedrive · Comissão individual · Faixa e Success Fee do time")
 
-# ── Abas: Mês atual | Semana atual | Manual
-aba_mes, aba_semana, aba_manual = st.tabs([
-    "📅 Mês Atual",
-    "📆 Semana Atual",
-    "✏️ Entrada Manual",
-])
-
 sf_opcao = st.selectbox("📈 Success Fee do Time", list(SUCCESS_FEE_MAP.keys()),
     help="Meta do time atingida. Bônus pago integralmente a cada vendedor.")
 bonus_sf, sf_descricao = SUCCESS_FEE_MAP[sf_opcao]
 
-# ─────────────────────────────────────────────────────────────────
-# ABA — MÊS ATUAL
-# ─────────────────────────────────────────────────────────────────
+aba_mes, aba_semana, aba_manual = st.tabs(["📅 Mês Atual", "📆 Semana Atual", "✏️ Entrada Manual"])
+
+# ─── ABA MÊS ────────────────────────────────────────────────────
 with aba_mes:
-    hoje      = date.today()
+    hoje       = date.today()
     inicio_mes = hoje.replace(day=1).strftime("%Y-%m-%d")
     fim_mes    = hoje.strftime("%Y-%m-%d")
-    periodo_label = hoje.strftime("Mês de %B/%Y").capitalize()
+    label_mes  = hoje.strftime("Mês de %B/%Y").capitalize()
 
-    st.info(f"📅 Buscando negócios ganhos de **01/{hoje.month:02d}/{hoje.year}** até hoje no Pipedrive.")
+    st.info(f"Negócios ganhos de **01/{hoje.month:02d}/{hoje.year}** até hoje.")
 
     if st.button("🔄 Carregar do Pipedrive", key="btn_mes", use_container_width=True, type="primary"):
         dados = []
@@ -370,50 +372,21 @@ with aba_mes:
             for nome, email in VENDEDORES.items():
                 t, e, c = contabilizar_vendedor(email, inicio_mes, fim_mes)
                 dados.append((nome, t, e, c))
-                st.success(f"✅ {nome}: {t}T + {e}E + {c}C")
-
+                st.success(f"{nome}: {t}T + {e}E + {c}C")
         st.markdown("---")
         resultados, total_contratos, total_geral, bonus_faixa, nome_faixa = \
             renderizar_resultados(dados, bonus_sf, sf_opcao, sf_descricao)
+        bloco_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
+                    total_contratos, total_geral, label_mes, "mes")
 
-        # E-mail mensal
-        st.markdown("---")
-        st.subheader("✉️ Enviar Resultado por E-mail")
-        with st.expander("Configurações de e-mail", expanded=False):
-            col1, col2 = st.columns(2)
-            email_rem  = col1.text_input("Remetente", placeholder="seu@email.com", key="rem_mes")
-            senha_rem  = col2.text_input("Senha", type="password", key="sen_mes")
-            destinat   = st.text_input("Destinatários (separar por vírgula)", key="dest_mes")
-            assunto    = st.text_input("Assunto", value=f"Resultado Comercial — {periodo_label}", key="ass_mes")
-
-        if st.button("📧 Enviar E-mail", key="email_mes", use_container_width=True):
-            if not email_rem or not senha_rem or not destinat:
-                st.error("Preencha remetente, senha e destinatários.")
-            else:
-                corpo = montar_email_html(resultados, nome_faixa, bonus_faixa,
-                                          sf_opcao, bonus_sf, total_contratos,
-                                          total_geral, periodo_label)
-                try:
-                    with st.spinner("Enviando..."):
-                        enviar_email(email_rem, senha_rem,
-                                     [d.strip() for d in destinat.split(",")],
-                                     assunto, corpo, "smtp.office365.com", 587)
-                    st.success("✅ E-mail enviado com sucesso!")
-                except smtplib.SMTPAuthenticationError:
-                    st.error("❌ Falha na autenticação. Verifique e-mail e senha.")
-                except Exception as ex:
-                    st.error(f"❌ Erro: {ex}")
-
-# ─────────────────────────────────────────────────────────────────
-# ABA — SEMANA ATUAL
-# ─────────────────────────────────────────────────────────────────
+# ─── ABA SEMANA ─────────────────────────────────────────────────
 with aba_semana:
-    hoje         = date.today()
+    hoje          = date.today()
     inicio_semana = (hoje - timedelta(days=hoje.weekday())).strftime("%Y-%m-%d")
     fim_semana    = hoje.strftime("%Y-%m-%d")
-    periodo_label_sem = f"Semana {inicio_semana} a {fim_semana}"
+    label_semana  = f"Semana {inicio_semana} a {fim_semana}"
 
-    st.info(f"📆 Buscando negócios ganhos de **{inicio_semana}** (segunda) até hoje.")
+    st.info(f"Negócios ganhos de **{inicio_semana}** (segunda) até hoje.")
 
     if st.button("🔄 Carregar do Pipedrive", key="btn_sem", use_container_width=True, type="primary"):
         dados = []
@@ -421,66 +394,33 @@ with aba_semana:
             for nome, email in VENDEDORES.items():
                 t, e, c = contabilizar_vendedor(email, inicio_semana, fim_semana)
                 dados.append((nome, t, e, c))
-                st.success(f"✅ {nome}: {t}T + {e}E + {c}C")
-
+                st.success(f"{nome}: {t}T + {e}E + {c}C")
         st.markdown("---")
         resultados, total_contratos, total_geral, bonus_faixa, nome_faixa = \
             renderizar_resultados(dados, bonus_sf, sf_opcao, sf_descricao)
+        bloco_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
+                    total_contratos, total_geral, label_semana, "sem")
 
-        # E-mail semanal
-        st.markdown("---")
-        st.subheader("✉️ Enviar Resultado por E-mail")
-        with st.expander("Configurações de e-mail", expanded=False):
-            col1, col2 = st.columns(2)
-            email_rem  = col1.text_input("Remetente", placeholder="seu@email.com", key="rem_sem")
-            senha_rem  = col2.text_input("Senha", type="password", key="sen_sem")
-            destinat   = st.text_input("Destinatários (separar por vírgula)", key="dest_sem")
-            assunto    = st.text_input("Assunto", value=f"Resultado Semanal — {periodo_label_sem}", key="ass_sem")
-
-        if st.button("📧 Enviar E-mail", key="email_sem", use_container_width=True):
-            if not email_rem or not senha_rem or not destinat:
-                st.error("Preencha remetente, senha e destinatários.")
-            else:
-                corpo = montar_email_html(resultados, nome_faixa, bonus_faixa,
-                                          sf_opcao, bonus_sf, total_contratos,
-                                          total_geral, periodo_label_sem)
-                try:
-                    with st.spinner("Enviando..."):
-                        enviar_email(email_rem, senha_rem,
-                                     [d.strip() for d in destinat.split(",")],
-                                     assunto, corpo, "smtp.office365.com", 587)
-                    st.success("✅ E-mail enviado com sucesso!")
-                except smtplib.SMTPAuthenticationError:
-                    st.error("❌ Falha na autenticação. Verifique e-mail e senha.")
-                except Exception as ex:
-                    st.error(f"❌ Erro: {ex}")
-
-# ─────────────────────────────────────────────────────────────────
-# ABA — ENTRADA MANUAL
-# ─────────────────────────────────────────────────────────────────
+# ─── ABA MANUAL ─────────────────────────────────────────────────
 with aba_manual:
-    st.caption("Insira os valores manualmente caso queira simular ou corrigir os dados.")
+    st.caption("Insira os valores manualmente para simular ou corrigir dados.")
 
     params   = st.query_params
-    pre_sf   = params.get("sf", "0%")
+    pre_n0   = params.get("n0", "Luis Felipe")
+    pre_n1   = params.get("n1", "Fernando")
     pre_t0   = int(params.get("t0", 0))
     pre_e0   = int(params.get("e0", 0))
     pre_c0   = int(params.get("c0", 0))
     pre_t1   = int(params.get("t1", 0))
     pre_e1   = int(params.get("e1", 0))
     pre_c1   = int(params.get("c1", 0))
-    pre_n0   = params.get("n0", "Luis Felipe")
-    pre_n1   = params.get("n1", "Fernando")
     auto_run = params.get("run", "0") == "1"
 
     col1, col2 = st.columns(2)
     dados_manual = []
     for idx, (col, nome_def, dt, de, dc) in enumerate(zip(
-        [col1, col2],
-        [pre_n0, pre_n1],
-        [pre_t0, pre_t1],
-        [pre_e0, pre_e1],
-        [pre_c0, pre_c1],
+        [col1, col2], [pre_n0, pre_n1],
+        [pre_t0, pre_t1], [pre_e0, pre_e1], [pre_c0, pre_c1],
     )):
         with col:
             st.markdown(f"**{nome_def}**")
@@ -493,10 +433,11 @@ with aba_manual:
         st.markdown("---")
         renderizar_resultados(dados_manual, bonus_sf, sf_opcao, sf_descricao)
 
+# ─── TABELA DE FAIXAS ───────────────────────────────────────────
 with st.expander("📖 Tabela de Faixas", expanded=False):
     st.dataframe(pd.DataFrame([{
-        "Faixa": f"Faixa {num}", "Mín. Transportadoras": min_t,
-        "Mín. Embarcadores": min_e, "Bônus (R$)": f"R$ {bonus:,.2f}",
+        "Faixa": f"Faixa {num}",
+        "Mín. Transportadoras": min_t,
+        "Mín. Embarcadores": min_e,
+        "Bônus (R$)": f"R$ {bonus:,.2f}",
     } for num, min_t, min_e, bonus in reversed(FAIXAS)]), use_container_width=True, hide_index=True)
-ENDOFFILE
-echo "OK"

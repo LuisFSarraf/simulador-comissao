@@ -155,10 +155,10 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
     tag_time = '<span class="tag-sem-faixa">Sem faixa</span>' if nome_faixa == "Sem faixa" \
                else f'<span class="tag-faixa">{nome_faixa}</span>'
     c_t, c_e = aloc_c
-    hint_c = f'<div class="hint">↳ Coringas: {c_t} como transportadora · {c_e} como embarcador</div>' if total_c > 0 else ""
+    hint_c = f'<div class="hint">↳ Embarcador/Transportadora: {c_t} alocados como Transportadora · {c_e} como Embarcador</div>' if total_c > 0 else ""
     st.markdown(f"""
 <div class="card-time">
-  <div class="linha">📦 Total do time: <b>{total_t}T + {total_e}E + {total_c}C</b> → com coringas: <b>{dist_time[0]}T + {dist_time[1]}E</b></div>
+  <div class="linha">📦 Total do time: <b>{total_t} Transportadoras + {total_e} Embarcadores + {total_c} Emb./Transp.</b> → com alocação: <b>{dist_time[0]} Transportadoras + {dist_time[1]} Embarcadores</b></div>
   {hint_c}
   <div class="linha">🏆 Faixa atingida: {tag_time} → <b>R$ {bonus_faixa:,.2f}</b> por vendedor</div>
   <div class="linha">📈 Success Fee ({sf_opcao} · {sf_descricao}): <b>R$ {bonus_sf:,.2f}</b> por vendedor</div>
@@ -178,7 +178,7 @@ def renderizar_resultados(dados_input, bonus_sf, sf_opcao, sf_descricao):
         st.markdown(f"""
 <div class="card">
   <h3>{nome}</h3>
-  <h2>{t+e+c} contratos · {t} transp. + {e} emb. + {c} coringas</h2>
+  <h2>{t+e+c} contratos · {t} Transportadoras + {e} Embarcadores + {c} Embarcador/Transportadora</h2>
   <div class="linha">💰 Comissão por contratos: <b>R$ {comissao:,.2f}</b></div>
   <div class="linha">🏆 Bônus de faixa (time): {tag} → <b>R$ {bonus_faixa:,.2f}</b></div>
   <div class="linha">📈 Success fee ({sf_opcao}): <b>R$ {bonus_sf:,.2f}</b></div>
@@ -538,7 +538,7 @@ with aba_manual:
             st.markdown(f"**{nome_def}**")
             t = int(st.number_input("Transportadoras", min_value=0, step=1, value=dt, key=f"mt_{idx}"))
             e = int(st.number_input("Embarcadores",    min_value=0, step=1, value=de, key=f"me_{idx}"))
-            c = int(st.number_input("Coringas",        min_value=0, step=1, value=dc, key=f"mc_{idx}"))
+            c = int(st.number_input("Embarcador/Transportadora", min_value=0, step=1, value=dc, key=f"mc_{idx}"))
             dados_manual.append((nome_def, t, e, c))
 
     if st.button("🚀 Calcular", key="btn_manual", use_container_width=True, type="primary") or auto_run:

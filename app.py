@@ -617,8 +617,6 @@ with st.expander("📖 Tabela de Faixas de Bônus", expanded=False):
     } for num, min_t, min_e, bonus in reversed(FAIXAS)]), use_container_width=True, hide_index=True)
 '''
 
-with open('/mnt/user-data/outputs/dashboard_comercial.py', 'w') as f:
-    f.write(codigo)
 
 print("OK — tamanho:", len(codigo))
 PYEOF

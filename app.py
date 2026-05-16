@@ -339,9 +339,9 @@ def buscar_usuarios():
 @st.cache_data(ttl=300, show_spinner=False)
 def buscar_negocios(user_id, status, data_inicio, data_fim):
     """
-    Busca negócios por usuário e status no período.
-    Usa /users/{id}/deals para garantir o filtro por responsável.
-    Fallback: /deals com user_id param.
+    Busca negócios por usuário e status.
+    Usa GET /deals?user_id=X&status=won — endpoint oficial Pipedrive v1.
+    Filtra pelo período usando won_time/lost_time.
     """
     items = []
     start = 0
@@ -349,30 +349,30 @@ def buscar_negocios(user_id, status, data_inicio, data_fim):
 
     while True:
         try:
-            # Endpoint direto por usuário — mais confiável que filtrar por user_id
             r = requests.get(
-                f"{PIPEDRIVE_BASE}/users/{user_id}/deals",
+                f"{PIPEDRIVE_BASE}/deals",
                 params={
                     "api_token": PIPEDRIVE_TOKEN,
-                    "status": status,
-                    "start": start,
-                    "limit": 100,
+                    "status":    status,
+                    "user_id":   user_id,
+                    "start":     start,
+                    "limit":     500,  # máximo permitido pelo Pipedrive
                 },
-                timeout=10,
+                timeout=15,
             )
             r.raise_for_status()
-        except Exception:
+        except Exception as ex:
             break
 
         payload = r.json()
         deals   = payload.get("data") or []
 
         for d in deals:
-            dt = (d.get(campo_data) or "")[:10]
-            # Se não tem data de fechamento ainda, pula
+            raw_dt = d.get(campo_data) or ""
+            # Pipedrive retorna vários formatos; pega só YYYY-MM-DD
+            dt = raw_dt[:10] if raw_dt else ""
             if not dt:
                 continue
-            # Filtra pelo período
             if data_inicio <= dt <= data_fim:
                 items.append(d)
 
@@ -1173,15 +1173,43 @@ aba_mes, aba_semana, aba_manual = st.tabs(["📅 Mês Atual", "📆 Semana Atual
 
 # ── ABA MÊS
 with aba_mes:
-    hoje       = date.today()
-    ini_mes    = hoje.replace(day=1).strftime("%Y-%m-%d")
-    fim_mes    = hoje.strftime("%Y-%m-%d")
-    label_mes  = hoje.strftime("Mês de %B de %Y").capitalize()
-    st.info(f"📅 Negócios ganhos de **01/{hoje.month:02d}/{hoje.year}** até hoje, por vendedor.")
+    hoje = date.today()
+
+    # Seletor de mês — permite escolher qualquer mês dos últimos 12
+    meses_disponiveis = []
+    for i in range(12):
+        d_ref = date(hoje.year, hoje.month, 1) - timedelta(days=i*28)
+        primeiro = d_ref.replace(day=1)
+        meses_disponiveis.append(primeiro)
+
+    col_mes_sel, col_mes_info = st.columns([2, 3])
+    with col_mes_sel:
+        mes_escolhido = st.selectbox(
+            "Selecionar mês",
+            options=meses_disponiveis,
+            format_func=lambda d: d.strftime("%B de %Y").capitalize(),
+            key="sel_mes",
+        )
+
+    ini_mes   = mes_escolhido.strftime("%Y-%m-%d")
+    # Se for o mês atual, vai até hoje; senão, vai até o último dia do mês
+    if mes_escolhido.month == hoje.month and mes_escolhido.year == hoje.year:
+        fim_mes = hoje.strftime("%Y-%m-%d")
+        label_mes = hoje.strftime("Mês de %B de %Y").capitalize() + " (parcial)"
+    else:
+        # último dia do mês escolhido
+        if mes_escolhido.month == 12:
+            ultimo = date(mes_escolhido.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            ultimo = date(mes_escolhido.year, mes_escolhido.month + 1, 1) - timedelta(days=1)
+        fim_mes = ultimo.strftime("%Y-%m-%d")
+        label_mes = mes_escolhido.strftime("Mês de %B de %Y").capitalize()
+
+    with col_mes_info:
+        st.info(f"📅 Buscando negócios ganhos de **{ini_mes}** até **{fim_mes}**")
 
     debug_mode = st.toggle("🔍 Modo debug (inspecionar API)", value=False, key="dbg_mes")
     if st.button("🔄 Carregar dados do Pipedrive", key="load_mes", use_container_width=True, type="primary"):
-        # Limpa cache para forçar nova busca
         buscar_negocios.clear()
         buscar_usuarios.clear()
         buscar_produtos_lote.clear()

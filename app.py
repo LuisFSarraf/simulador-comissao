@@ -338,26 +338,50 @@ def buscar_usuarios():
 
 @st.cache_data(ttl=300, show_spinner=False)
 def buscar_negocios(user_id, status, data_inicio, data_fim):
+    """
+    Busca negócios por usuário e status no período.
+    Usa /users/{id}/deals para garantir o filtro por responsável.
+    Fallback: /deals com user_id param.
+    """
     items = []
     start = 0
+    campo_data = "won_time" if status == "won" else "lost_time"
+
     while True:
         try:
-            r = requests.get(f"{PIPEDRIVE_BASE}/deals", params={
-                "api_token": PIPEDRIVE_TOKEN, "status": status,
-                "user_id": user_id, "start": start, "limit": 100,
-            }, timeout=10)
+            # Endpoint direto por usuário — mais confiável que filtrar por user_id
+            r = requests.get(
+                f"{PIPEDRIVE_BASE}/users/{user_id}/deals",
+                params={
+                    "api_token": PIPEDRIVE_TOKEN,
+                    "status": status,
+                    "start": start,
+                    "limit": 100,
+                },
+                timeout=10,
+            )
             r.raise_for_status()
         except Exception:
             break
-        for d in (r.json().get("data") or []):
-            campo_data = "won_time" if status == "won" else "lost_time"
+
+        payload = r.json()
+        deals   = payload.get("data") or []
+
+        for d in deals:
             dt = (d.get(campo_data) or "")[:10]
+            # Se não tem data de fechamento ainda, pula
+            if not dt:
+                continue
+            # Filtra pelo período
             if data_inicio <= dt <= data_fim:
                 items.append(d)
-        if r.json().get("additional_data", {}).get("pagination", {}).get("more_items_in_collection"):
+
+        pag = payload.get("additional_data", {}).get("pagination", {})
+        if pag.get("more_items_in_collection"):
             start += 100
         else:
             break
+
     return items
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -381,14 +405,43 @@ def classificar(produtos):
     if e:       return "e"
     return None
 
-def carregar_vendedor(email, data_inicio, data_fim):
+def carregar_vendedor(email, data_inicio, data_fim, debug=False):
     usuarios = buscar_usuarios()
     uid = usuarios.get(email.lower())
     if not uid:
+        if debug:
+            st.error(f"Usuário não encontrado para {email}. Usuários disponíveis: {list(usuarios.keys())}")
         return {"t": 0, "e": 0, "c": 0, "ganhos": [], "perdidos": 0}
 
     ganhos   = buscar_negocios(uid, "won",  data_inicio, data_fim)
     perdidos = buscar_negocios(uid, "lost", data_inicio, data_fim)
+
+    if debug:
+        st.write(f"**{email}** → user_id: `{uid}`")
+        st.write(f"Negócios ganhos no período: `{len(ganhos)}`")
+        if ganhos:
+            st.write("Amostra (primeiro negócio):", {
+                "id": ganhos[0].get("id"),
+                "title": ganhos[0].get("title"),
+                "won_time": ganhos[0].get("won_time"),
+                "user_id": ganhos[0].get("user_id", {}).get("id") if isinstance(ganhos[0].get("user_id"), dict) else ganhos[0].get("user_id"),
+            })
+        else:
+            # Busca sem filtro de data para ver se há negócios
+            try:
+                r_test = requests.get(
+                    f"{PIPEDRIVE_BASE}/users/{uid}/deals",
+                    params={"api_token": PIPEDRIVE_TOKEN, "status": "won", "limit": 3},
+                    timeout=10,
+                )
+                total = r_test.json().get("additional_data", {}).get("summary", {}).get("total_count", "?")
+                amostra = r_test.json().get("data") or []
+                st.warning(f"Total de ganhos sem filtro de data: {total}")
+                if amostra:
+                    st.write("Datas dos últimos ganhos:", [d.get("won_time", "—")[:10] for d in amostra])
+                    st.write(f"Período buscado: {data_inicio} a {data_fim}")
+            except Exception as ex:
+                st.error(f"Erro no teste sem filtro: {ex}")
 
     deal_ids     = tuple(d["id"] for d in ganhos)
     prods        = buscar_produtos_lote(deal_ids) if deal_ids else {}
@@ -1126,12 +1179,17 @@ with aba_mes:
     label_mes  = hoje.strftime("Mês de %B de %Y").capitalize()
     st.info(f"📅 Negócios ganhos de **01/{hoje.month:02d}/{hoje.year}** até hoje, por vendedor.")
 
+    debug_mode = st.toggle("🔍 Modo debug (inspecionar API)", value=False, key="dbg_mes")
     if st.button("🔄 Carregar dados do Pipedrive", key="load_mes", use_container_width=True, type="primary"):
+        # Limpa cache para forçar nova busca
+        buscar_negocios.clear()
+        buscar_usuarios.clear()
+        buscar_produtos_lote.clear()
         dados_mes = {}
         with st.spinner("Conectando ao Pipedrive..."):
             for nome, email in VENDEDORES.items():
                 try:
-                    dados_mes[nome] = carregar_vendedor(email, ini_mes, fim_mes)
+                    dados_mes[nome] = carregar_vendedor(email, ini_mes, fim_mes, debug=debug_mode)
                     d = dados_mes[nome]
                     st.success(f"✅ {nome}: {d['t']} Transportadoras · {d['e']} Embarcadores · {d['c']} Emb./Transp.")
                 except Exception as ex:
@@ -1161,12 +1219,16 @@ with aba_semana:
     label_sem = f"Semana de {ini_sem} a {fim_sem}"
     st.info(f"📆 Negócios ganhos de **{ini_sem}** (segunda-feira) até hoje.")
 
+    debug_mode_sem = st.toggle("🔍 Modo debug (inspecionar API)", value=False, key="dbg_sem")
     if st.button("🔄 Carregar dados do Pipedrive", key="load_sem", use_container_width=True, type="primary"):
+        buscar_negocios.clear()
+        buscar_usuarios.clear()
+        buscar_produtos_lote.clear()
         dados_sem = {}
         with st.spinner("Conectando ao Pipedrive..."):
             for nome, email in VENDEDORES.items():
                 try:
-                    dados_sem[nome] = carregar_vendedor(email, ini_sem, fim_sem)
+                    dados_sem[nome] = carregar_vendedor(email, ini_sem, fim_sem, debug=debug_mode_sem)
                     d = dados_sem[nome]
                     st.success(f"✅ {nome}: {d['t']} Transportadoras · {d['e']} Embarcadores · {d['c']} Emb./Transp.")
                 except Exception as ex:

@@ -1,5 +1,4 @@
 bash
-
 python3 << 'PYEOF'
 with open('/tmp/logo_b64.txt') as f:
     logo_b64 = f.read().strip()

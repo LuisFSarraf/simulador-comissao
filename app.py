@@ -1230,6 +1230,4 @@ with open('/mnt/user-data/outputs/dashboard_comercial.py', 'w') as f:
     f.write(code)
 print("OK —", len(code), "chars")
 PYEOF
-Saída
 
-OK — 202116 chars

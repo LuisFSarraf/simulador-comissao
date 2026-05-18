@@ -774,8 +774,6 @@ def renderizar(dados, bonus_sf, sf_opcao, sf_descricao, periodo_label):
 # E-MAIL EXECUTIVO PREMIUM
 # ═══════════════════════════════════════════════════════════════
 
-bash
-
 python3 << 'EOF'
 with open('/mnt/user-data/outputs/dashboard_comercial.py', 'r') as f:
     code = f.read()

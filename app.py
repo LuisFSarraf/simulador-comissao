@@ -774,72 +774,101 @@ def renderizar(dados, bonus_sf, sf_opcao, sf_descricao, periodo_label):
 # E-MAIL EXECUTIVO PREMIUM
 # ═══════════════════════════════════════════════════════════════
 
+bash
+
+python3 << 'EOF'
+with open('/mnt/user-data/outputs/dashboard_comercial.py', 'r') as f:
+    code = f.read()
+
+start = code.find('\ndef montar_email(')
+end   = code.find('\ndef enviar_email(')
+
+nova_funcao = '''
 def montar_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
                  total_contratos, total_geral, periodo_label, dados_raw=None):
+
     total_t = sum(r["t"] for r in resultados.values())
     total_e = sum(r["e"] for r in resultados.values())
     total_c = sum(r["c"] for r in resultados.values())
     top_nome = max(resultados, key=lambda n: resultados[n]["contratos"])
     top_r    = resultados[top_nome]
 
-    linhas_tabela = "".join(f"""
-      <tr style="background:{"#ffffff" if i%2==0 else "#f8faff"}">
-        <td style="padding:13px 18px;font-weight:600;color:#0f172a;border-bottom:1px solid #e8ecf0">{nome}</td>
-        <td style="padding:13px 12px;text-align:center;color:#334155;border-bottom:1px solid #e8ecf0">{r["contratos"]}</td>
-        <td style="padding:13px 12px;text-align:center;color:#1d4ed8;border-bottom:1px solid #e8ecf0">{r["t"]}</td>
-        <td style="padding:13px 12px;text-align:center;color:#166534;border-bottom:1px solid #e8ecf0">{r["e"]}</td>
-        <td style="padding:13px 12px;text-align:center;color:#6d28d9;border-bottom:1px solid #e8ecf0">{r["c"]}</td>
-        <td style="padding:13px 12px;text-align:right;color:#334155;border-bottom:1px solid #e8ecf0">R$ {r["comissao"]:,.2f}</td>
-        <td style="padding:13px 12px;text-align:right;color:#334155;border-bottom:1px solid #e8ecf0">R$ {r["bonus_faixa"]:,.2f}</td>
-        <td style="padding:13px 12px;text-align:right;color:#334155;border-bottom:1px solid #e8ecf0">R$ {r["bonus_sf"]:,.2f}</td>
-        <td style="padding:13px 18px;text-align:right;font-weight:800;color:#2d3ab1;
-                   border-bottom:1px solid #e8ecf0;font-size:14px">R$ {r["total"]:,.2f}</td>
-      </tr>""" for i, (nome, r) in enumerate(resultados.items()))
+    # ── TABELA FINANCEIRA (para pagamento)
+    linhas_financeiro = ""
+    for i, (nome, r) in enumerate(resultados.items()):
+        bg = "#ffffff" if i % 2 == 0 else "#f8faff"
+        linhas_financeiro += f"""
+        <tr style="background:{bg}">
+          <td style="padding:14px 18px;font-weight:700;color:#0f172a;border-bottom:1px solid #e2e8f0">{nome}</td>
+          <td style="padding:14px 12px;text-align:center;color:#334155;border-bottom:1px solid #e2e8f0">{r["contratos"]}</td>
+          <td style="padding:14px 12px;text-align:right;color:#334155;border-bottom:1px solid #e2e8f0">R$ {r["comissao"]:,.2f}</td>
+          <td style="padding:14px 12px;text-align:right;color:#334155;border-bottom:1px solid #e2e8f0">R$ {r["bonus_faixa"]:,.2f}</td>
+          <td style="padding:14px 12px;text-align:right;color:#334155;border-bottom:1px solid #e2e8f0">R$ {r["bonus_sf"]:,.2f}</td>
+          <td style="padding:14px 18px;text-align:right;font-weight:800;color:#166534;font-size:15px;border-bottom:1px solid #e2e8f0;background:#f0fdf4">R$ {r["total"]:,.2f}</td>
+        </tr>"""
 
-    # Blocos de clientes detalhados
+    # ── BLOCOS DE CLIENTES POR TIPO E VENDEDOR
     blocos_clientes = ""
     if dados_raw:
         for nome, d in dados_raw.items():
             ganhos = d.get("ganhos", [])
             if not ganhos:
                 continue
-            tipos = {
-                "Transportadora":            ("#1d4ed8", "#dbeafe", "🚛"),
-                "Embarcador":                ("#166534", "#dcfce7", "📦"),
-                "Embarcador/Transportadora": ("#6d28d9", "#ede9fe", "🔀"),
+
+            tipos_config = {
+                "Transportadora":            ("#1d4ed8", "#eff6ff", "🚛"),
+                "Embarcador":                ("#166534", "#f0fdf4", "📦"),
+                "Embarcador/Transportadora": ("#6d28d9", "#faf5ff", "🔀"),
             }
-            blocos_tipo = ""
-            for tipo_nome, (cor_text, cor_bg, icon) in tipos.items():
+
+            colunas_tipo = ""
+            for tipo_nome, (cor_text, cor_bg, icon) in tipos_config.items():
                 lista = [g for g in ganhos if g["tipo"] == tipo_nome]
                 if not lista:
-                    continue
-                linhas_cli = "".join(f"""
-                  <tr>
-                    <td style="padding:7px 14px;font-size:12px;color:#334155;
-                               border-bottom:1px solid #f1f5f9">{g["data"]}</td>
-                    <td style="padding:7px 14px;font-size:12px;color:#0f172a;font-weight:500;
-                               border-bottom:1px solid #f1f5f9">{g["titulo"]}</td>
-                  </tr>""" for g in lista)
-                blocos_tipo += f"""
-                <div style="margin-bottom:14px">
-                  <div style="background:{cor_bg};color:{cor_text};padding:7px 14px;
-                               border-radius:8px 8px 0 0;font-size:11px;font-weight:700;
-                               text-transform:uppercase;letter-spacing:0.5px">
-                    {icon} {tipo_nome} — {len(lista)} contrato(s)
+                    linhas_cli = f"""
+                    <tr><td colspan="2" style="padding:12px 14px;font-size:12px;color:#94a3b8;font-style:italic">
+                      Nenhum contrato
+                    </td></tr>"""
+                else:
+                    linhas_cli = "".join(f"""
+                    <tr style="background:{"#ffffff" if j%2==0 else "#fafafa"}">
+                      <td style="padding:8px 14px;font-size:12px;color:#0f172a;font-weight:500;
+                                 border-bottom:1px solid #f1f5f9;width:65%">{g["titulo"]}</td>
+                      <td style="padding:8px 14px;font-size:11px;color:#64748b;
+                                 border-bottom:1px solid #f1f5f9;text-align:right">{g["data"]}</td>
+                    </tr>""" for j, g in enumerate(lista))
+
+                colunas_tipo += f"""
+                <div style="margin-bottom:16px">
+                  <div style="background:{cor_bg};border-left:3px solid {cor_text};
+                               padding:8px 14px;border-radius:0 6px 0 0">
+                    <span style="color:{cor_text};font-size:12px;font-weight:700;
+                                 text-transform:uppercase;letter-spacing:0.5px">
+                      {icon} {tipo_nome} &nbsp;
+                      <span style="background:{cor_text};color:white;border-radius:20px;
+                                   padding:1px 8px;font-size:11px">{len(lista)}</span>
+                    </span>
                   </div>
                   <table width="100%" cellpadding="0" cellspacing="0"
                          style="border:1px solid #e2e8f0;border-top:none;
-                                border-radius:0 0 8px 8px;overflow:hidden;background:#fff">
+                                border-radius:0 0 6px 6px;overflow:hidden">
                     {linhas_cli}
                   </table>
                 </div>"""
 
             blocos_clientes += f"""
-            <tr><td style="padding:20px 40px 0">
-              <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:#0f172a;
-                         padding-left:12px;border-left:3px solid #2d3ab1">{nome}</p>
-              {blocos_tipo}
-            </td></tr>"""
+            <tr>
+              <td style="padding:24px 40px 0">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+                  <span style="font-size:15px;font-weight:800;color:#0f172a">{nome}</span>
+                  <span style="background:#2d3ab1;color:white;border-radius:20px;
+                               padding:2px 10px;font-size:11px;font-weight:700">
+                    {sum(len([g for g in ganhos if g["tipo"]==t]) for t in ["Transportadora","Embarcador","Embarcador/Transportadora"])} contratos
+                  </span>
+                </div>
+                {colunas_tipo}
+              </td>
+            </tr>"""
 
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -849,57 +878,58 @@ def montar_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
 <title>Fechamento Comercial — Mobiis</title>
 <style>
   @media (prefers-color-scheme: dark) {{
-    .wrap        {{ background:#0f172a !important; }}
-    .card        {{ background:#1e293b !important; border-color:#334155 !important; }}
-    .card-inner  {{ background:#263148 !important; }}
-    .txt         {{ color:#e2e8f0 !important; }}
-    .txt-muted   {{ color:#94a3b8 !important; }}
-    .txt-strong  {{ color:#f8fafc !important; }}
-    .tr-even     {{ background:#1e293b !important; }}
-    .tr-odd      {{ background:#263148 !important; }}
-    .td-cell     {{ color:#cbd5e1 !important; border-color:#334155 !important; }}
-    .td-name     {{ color:#f1f5f9 !important; }}
-    .footer      {{ background:#0f172a !important; border-color:#1e293b !important; }}
-    .kpi-box     {{ background:#1e3a5f !important; border-color:#2d3ab1 !important; }}
-    .cli-row     {{ background:#1e293b !important; border-color:#334155 !important; }}
+    body   {{ background-color:#0f172a !important; }}
+    .card  {{ background-color:#1e293b !important; border-color:#334155 !important; }}
+    .txt   {{ color:#e2e8f0 !important; }}
+    .muted {{ color:#94a3b8 !important; }}
+    .kpi   {{ background-color:#1e3a5f !important; border-color:#2d3ab1 !important; }}
+    .foot  {{ background-color:#1e293b !important; }}
   }}
+  * {{ box-sizing:border-box; }}
 </style>
 </head>
-<body class="wrap" style="margin:0;padding:0;background:#f1f5f9;
-      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0"
-       style="background:#f1f5f9;padding:36px 16px">
-<tr><td>
-<table class="card" width="680" align="center" cellpadding="0" cellspacing="0"
-       style="max-width:680px;background:#ffffff;border-radius:16px;overflow:hidden;
-              border:1px solid #e2e8f0;box-shadow:0 4px 24px rgba(0,0,0,0.06)">
+<body style="margin:0;padding:0;background:#f1f5f9;
+             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
 
-  <!-- LOGO + HEADER -->
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 12px">
+<tr><td>
+<table class="card" width="660" align="center" cellpadding="0" cellspacing="0"
+       style="max-width:660px;background:#ffffff;border-radius:12px;overflow:hidden;
+              border:1px solid #e2e8f0;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
+
+  <!-- ══ LOGO ══ -->
   <tr>
-    <td style="background:#ffffff;padding:28px 40px 22px;text-align:center;
-               border-bottom:3px solid #2d3ab1">
-      <img src="data:image/jpeg;base64,{LOGO_B64}" alt="Mobiis"
-           width="130" style="display:block;margin:0 auto;height:auto">
+    <td style="background:#ffffff;padding:24px 40px;text-align:center;
+               border-bottom:4px solid #2d3ab1">
+      <img src="data:image/jpeg;base64,{LOGO_B64}"
+           alt="Mobiis" width="120" style="display:block;margin:0 auto;height:auto">
     </td>
   </tr>
+
+  <!-- ══ CABEÇALHO ══ -->
   <tr>
-    <td style="background:linear-gradient(135deg,#1e2a96 0%,#2d3ab1 50%,#4f5fdb 100%);
-               padding:32px 40px">
+    <td style="background:#2d3ab1;padding:28px 40px">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td>
-            <p style="margin:0 0 4px;color:#c7d2fe;font-size:11px;font-weight:600;
-                       text-transform:uppercase;letter-spacing:1.5px">Mobiis · Comercial</p>
-            <p style="margin:0;color:#ffffff;font-size:24px;font-weight:800;
-                       letter-spacing:-0.5px">Fechamento Comercial</p>
-            <p style="margin:6px 0 0;color:#a5b4fc;font-size:14px">{periodo_label}</p>
+            <p style="margin:0 0 2px;color:#a5b4fc;font-size:11px;font-weight:600;
+                       text-transform:uppercase;letter-spacing:1.5px">
+              Mobiis · Relatório Comercial
+            </p>
+            <p style="margin:0;color:#ffffff;font-size:22px;font-weight:800;
+                       letter-spacing:-0.5px">
+              Fechamento Comercial
+            </p>
+            <p style="margin:6px 0 0;color:#c7d2fe;font-size:13px">
+              {periodo_label}
+            </p>
           </td>
-          <td style="text-align:right;vertical-align:top">
-            <p style="margin:0;color:#c7d2fe;font-size:11px">Gerado em</p>
-            <p style="margin:4px 0 0;color:#ffffff;font-size:13px;font-weight:600">
+          <td style="text-align:right;vertical-align:middle">
+            <p style="margin:0;color:#a5b4fc;font-size:11px">Gerado em</p>
+            <p style="margin:4px 0 0;color:#ffffff;font-size:15px;font-weight:700">
               {datetime.now().strftime("%d/%m/%Y")}
             </p>
-            <p style="margin:2px 0 0;color:#a5b4fc;font-size:11px">
+            <p style="margin:2px 0 0;color:#c7d2fe;font-size:12px">
               {datetime.now().strftime("%H:%M")}
             </p>
           </td>
@@ -908,116 +938,27 @@ def montar_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
     </td>
   </tr>
 
-  <!-- DESTAQUE TOP PERFORMER -->
+  <!-- ══ TOP PERFORMER ══ -->
   <tr>
     <td style="padding:24px 40px 0">
-      <div class="kpi-box" style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;
-                  padding:18px 22px;display:flex;gap:14px;align-items:center">
-        <span style="font-size:32px">⭐</span>
-        <div>
-          <p class="txt-muted" style="margin:0 0 3px;font-size:11px;font-weight:600;
-                    color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-            Top Performer do Período
-          </p>
-          <p class="txt-strong" style="margin:0;font-size:17px;font-weight:800;color:#0f172a">
-            {top_nome} — {top_r["contratos"]} contratos fechados
-          </p>
-          <p class="txt-muted" style="margin:3px 0 0;font-size:12px;color:#64748b">
-            R$ {top_r["total"]:,.2f} no período
-          </p>
-        </div>
-      </div>
-    </td>
-  </tr>
-
-  <!-- KPIs -->
-  <tr>
-    <td style="padding:24px 40px 0">
-      <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#0f172a;
-                padding-left:12px;border-left:3px solid #2d3ab1">Resumo Financeiro</p>
       <table width="100%" cellpadding="0" cellspacing="0"
-             style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+             style="background:#fefce8;border:1.5px solid #fde047;border-radius:10px;overflow:hidden">
         <tr>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;width:25%">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-              Total Pago ao Time
+          <td style="padding:16px 20px;width:48px;text-align:center;font-size:28px;
+                     vertical-align:middle">⭐</td>
+          <td style="padding:16px 4px 16px 0;vertical-align:middle">
+            <p style="margin:0 0 2px;color:#713f12;font-size:11px;font-weight:700;
+                       text-transform:uppercase;letter-spacing:0.8px">
+              Top Performer do Período
             </p>
-            <p style="margin:0;color:#2d3ab1;font-size:20px;font-weight:800">
-              R$ {total_geral:,.2f}
-            </p>
-          </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;width:25%">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-              Faixa do Time
-            </p>
-            <p style="margin:0;color:#2d3ab1;font-size:20px;font-weight:800">{nome_faixa}</p>
-            <p class="txt-muted" style="margin:2px 0 0;font-size:11px;color:#64748b">
-              R$ {bonus_faixa:,.0f}/vendedor
+            <p style="margin:0;color:#1a1a1a;font-size:16px;font-weight:800">
+              {top_nome} — {top_r["contratos"]} contratos fechados
             </p>
           </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;width:25%">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-              Success Fee
-            </p>
-            <p style="margin:0;color:#2d3ab1;font-size:20px;font-weight:800">{sf_opcao}</p>
-            <p class="txt-muted" style="margin:2px 0 0;font-size:11px;color:#64748b">
-              R$ {bonus_sf:,.0f}/vendedor
-            </p>
-          </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-bottom:1px solid #e2e8f0;width:25%">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-              Total Contratos
-            </p>
-            <p style="margin:0;color:#2d3ab1;font-size:20px;font-weight:800">{total_contratos}</p>
-          </td>
-        </tr>
-        <tr>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#1d4ed8;text-transform:uppercase;letter-spacing:0.8px">
-              🚛 Transportadoras
-            </p>
-            <p class="txt-strong" style="margin:0;font-size:22px;font-weight:800;color:#0f172a">
-              {total_t}
-            </p>
-          </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#166534;text-transform:uppercase;letter-spacing:0.8px">
-              📦 Embarcadores
-            </p>
-            <p class="txt-strong" style="margin:0;font-size:22px;font-weight:800;color:#0f172a">
-              {total_e}
-            </p>
-          </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff;
-                     border-right:1px solid #e2e8f0">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#6d28d9;text-transform:uppercase;letter-spacing:0.8px">
-              🔀 Emb./Transportadora
-            </p>
-            <p class="txt-strong" style="margin:0;font-size:22px;font-weight:800;color:#0f172a">
-              {total_c}
-            </p>
-          </td>
-          <td class="kpi-box" style="padding:18px;background:#f8faff">
-            <p class="txt-muted" style="margin:0 0 4px;font-size:10px;font-weight:600;
-                       color:#64748b;text-transform:uppercase;letter-spacing:0.8px">
-              Período
-            </p>
-            <p class="txt-strong" style="margin:0;font-size:13px;font-weight:700;
-                       color:#0f172a;line-height:1.3">
-              {periodo_label}
+          <td style="padding:16px 20px;text-align:right;vertical-align:middle">
+            <p style="margin:0;color:#713f12;font-size:11px">Total</p>
+            <p style="margin:4px 0 0;color:#1a1a1a;font-size:18px;font-weight:900">
+              R$ {top_r["total"]:,.2f}
             </p>
           </td>
         </tr>
@@ -1025,87 +966,162 @@ def montar_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
     </td>
   </tr>
 
-  <!-- TABELA INDIVIDUAL -->
+  <!-- ══ KPIs DO TIME ══ -->
+  <tr>
+    <td style="padding:20px 40px 0">
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#0f172a;
+                padding-left:10px;border-left:3px solid #2d3ab1">
+        Resumo do Time
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border-radius:10px;overflow:hidden;border:1px solid #e2e8f0">
+        <tr>
+          <td class="kpi" style="padding:16px;background:#f8faff;text-align:center;
+                     border-right:1px solid #e2e8f0;width:25%">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#64748b;
+                       text-transform:uppercase;letter-spacing:0.8px">Faixa</p>
+            <p style="margin:0;font-size:20px;font-weight:900;color:#2d3ab1">{nome_faixa}</p>
+            <p style="margin:3px 0 0;font-size:11px;color:#64748b">R$ {bonus_faixa:,.0f}/vendedor</p>
+          </td>
+          <td class="kpi" style="padding:16px;background:#f8faff;text-align:center;
+                     border-right:1px solid #e2e8f0;width:25%">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#64748b;
+                       text-transform:uppercase;letter-spacing:0.8px">Success Fee</p>
+            <p style="margin:0;font-size:20px;font-weight:900;color:#2d3ab1">{sf_opcao}</p>
+            <p style="margin:3px 0 0;font-size:11px;color:#64748b">R$ {bonus_sf:,.0f}/vendedor</p>
+          </td>
+          <td class="kpi" style="padding:16px;background:#f8faff;text-align:center;
+                     border-right:1px solid #e2e8f0;width:25%">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#64748b;
+                       text-transform:uppercase;letter-spacing:0.8px">Contratos</p>
+            <p style="margin:0;font-size:20px;font-weight:900;color:#2d3ab1">{total_contratos}</p>
+            <p style="margin:3px 0 0;font-size:11px;color:#64748b">
+              {total_t}T · {total_e}E · {total_c}E/T
+            </p>
+          </td>
+          <td class="kpi" style="padding:16px;background:#f0fdf4;text-align:center;width:25%">
+            <p style="margin:0 0 4px;font-size:10px;font-weight:600;color:#166534;
+                       text-transform:uppercase;letter-spacing:0.8px">Total ao Time</p>
+            <p style="margin:0;font-size:20px;font-weight:900;color:#166534">
+              R$ {total_geral:,.2f}
+            </p>
+            <p style="margin:3px 0 0;font-size:11px;color:#166534">{len(resultados)} vendedores</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- ══ TABELA FINANCEIRA ══ -->
   <tr>
     <td style="padding:24px 40px 0">
-      <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#0f172a;
-                padding-left:12px;border-left:3px solid #2d3ab1">Desempenho por Vendedor</p>
+      <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#0f172a;
+                padding-left:10px;border-left:3px solid #166534">
+        Tabela de Pagamento — Financeiro
+      </p>
       <table width="100%" cellpadding="0" cellspacing="0"
-             style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:12px">
+             style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
         <thead>
-          <tr style="background:linear-gradient(135deg,#1e2a96,#2d3ab1)">
-            <th style="padding:12px 18px;color:#fff;text-align:left;font-weight:700">Vendedor</th>
-            <th style="padding:12px 10px;color:#c7d2fe;text-align:center;font-weight:500">Contratos</th>
-            <th style="padding:12px 10px;color:#93c5fd;text-align:center;font-weight:500">Transp.</th>
-            <th style="padding:12px 10px;color:#86efac;text-align:center;font-weight:500">Emb.</th>
-            <th style="padding:12px 10px;color:#c4b5fd;text-align:center;font-weight:500">E/T</th>
-            <th style="padding:12px 10px;color:#c7d2fe;text-align:right;font-weight:500">Comissão</th>
-            <th style="padding:12px 10px;color:#c7d2fe;text-align:right;font-weight:500">Bônus Faixa</th>
-            <th style="padding:12px 10px;color:#c7d2fe;text-align:right;font-weight:500">Success Fee</th>
-            <th style="padding:12px 18px;color:#fff;text-align:right;font-weight:800">Total R$</th>
+          <tr style="background:#1e293b">
+            <th style="padding:12px 18px;color:#ffffff;text-align:left;
+                       font-size:12px;font-weight:700">Vendedor</th>
+            <th style="padding:12px 12px;color:#94a3b8;text-align:center;
+                       font-size:12px;font-weight:500">Contratos</th>
+            <th style="padding:12px 12px;color:#94a3b8;text-align:right;
+                       font-size:12px;font-weight:500">Comissão</th>
+            <th style="padding:12px 12px;color:#94a3b8;text-align:right;
+                       font-size:12px;font-weight:500">Bônus Faixa</th>
+            <th style="padding:12px 12px;color:#94a3b8;text-align:right;
+                       font-size:12px;font-weight:500">Success Fee</th>
+            <th style="padding:12px 18px;color:#4ade80;text-align:right;
+                       font-size:12px;font-weight:700">Total a Pagar</th>
           </tr>
         </thead>
-        <tbody>{linhas_tabela}</tbody>
+        <tbody>{linhas_financeiro}</tbody>
         <tfoot>
-          <tr style="background:#f1f5f9">
+          <tr style="background:#f8faff">
             <td style="padding:14px 18px;font-weight:800;color:#0f172a;
-                       border-top:2px solid #cbd5e1">Time</td>
-            <td style="padding:14px 10px;font-weight:700;text-align:center;color:#0f172a;
-                       border-top:2px solid #cbd5e1">{total_contratos}</td>
-            <td style="padding:14px 10px;font-weight:700;text-align:center;color:#1d4ed8;
-                       border-top:2px solid #cbd5e1">{total_t}</td>
-            <td style="padding:14px 10px;font-weight:700;text-align:center;color:#166534;
-                       border-top:2px solid #cbd5e1">{total_e}</td>
-            <td style="padding:14px 10px;font-weight:700;text-align:center;color:#6d28d9;
-                       border-top:2px solid #cbd5e1">{total_c}</td>
+                       border-top:2px solid #cbd5e1">Total</td>
+            <td style="padding:14px 12px;text-align:center;font-weight:700;
+                       color:#0f172a;border-top:2px solid #cbd5e1">{total_contratos}</td>
             <td colspan="3" style="border-top:2px solid #cbd5e1"></td>
-            <td style="padding:14px 18px;font-weight:900;text-align:right;color:#2d3ab1;
-                       border-top:2px solid #cbd5e1;font-size:16px">R$ {total_geral:,.2f}</td>
+            <td style="padding:14px 18px;text-align:right;font-weight:900;
+                       color:#166534;font-size:17px;border-top:2px solid #cbd5e1;
+                       background:#f0fdf4">R$ {total_geral:,.2f}</td>
           </tr>
         </tfoot>
       </table>
+      <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;text-align:right">
+        * Valores sujeitos à validação da diretoria antes do pagamento
+      </p>
     </td>
   </tr>
 
-  <!-- CLIENTES DETALHADOS -->
-  {f'<tr><td style="padding:24px 40px 0"><p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#0f172a;padding-left:12px;border-left:3px solid #2d3ab1">Contratos Fechados por Vendedor</p></td></tr>' + blocos_clientes if dados_raw else ""}
+  <!-- ══ CLIENTES POR TIPO ══ -->
+  {f"""
+  <tr>
+    <td style="padding:24px 40px 0">
+      <p style="margin:0 0 4px;font-size:13px;font-weight:700;color:#0f172a;
+                padding-left:10px;border-left:3px solid #7c3aed">
+        Contratos Fechados por Vendedor
+      </p>
+      <p style="margin:0 0 16px 14px;font-size:12px;color:#64748b">
+        Detalhamento por categoria — {periodo_label}
+      </p>
+    </td>
+  </tr>
+  """ + blocos_clientes if dados_raw else ""}
 
-  <!-- TOTAL FINAL DESTAQUE -->
+  <!-- ══ TOTAL DESTAQUE ══ -->
   <tr>
     <td style="padding:24px 40px">
-      <div style="background:linear-gradient(135deg,#1e2a96,#2d3ab1,#4f5fdb);
-                  border-radius:12px;padding:24px 28px">
-        <table width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td>
-              <p style="margin:0;color:#c7d2fe;font-size:11px;font-weight:600;
-                         text-transform:uppercase;letter-spacing:1px">
-                Total Pago ao Time no Período
-              </p>
-              <p style="margin:6px 0 0;color:#ffffff;font-size:30px;font-weight:900;
-                         letter-spacing:-1px">R$ {total_geral:,.2f}</p>
-            </td>
-            <td style="text-align:right;vertical-align:middle">
-              <p style="margin:0;color:#a5b4fc;font-size:12px">{len(resultados)} vendedores</p>
-              <p style="margin:4px 0 0;color:#ffffff;font-size:15px;font-weight:700">
-                {total_contratos} contratos
-              </p>
-            </td>
-          </tr>
-        </table>
-      </div>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:#166534;border-radius:10px;overflow:hidden">
+        <tr>
+          <td style="padding:22px 28px">
+            <p style="margin:0;color:#bbf7d0;font-size:11px;font-weight:600;
+                       text-transform:uppercase;letter-spacing:1px">
+              Total a Pagar ao Time no Período
+            </p>
+            <p style="margin:6px 0 0;color:#ffffff;font-size:28px;font-weight:900;
+                       letter-spacing:-1px">
+              R$ {total_geral:,.2f}
+            </p>
+          </td>
+          <td style="padding:22px 28px;text-align:right;vertical-align:middle">
+            <p style="margin:0;color:#bbf7d0;font-size:12px">{periodo_label}</p>
+            <p style="margin:6px 0 0;color:#ffffff;font-size:14px;font-weight:700">
+              {total_contratos} contratos · {len(resultados)} vendedores
+            </p>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 
-  <!-- RODAPÉ -->
+  <!-- ══ RODAPÉ ══ -->
   <tr>
-    <td class="footer" style="background:#f8faff;padding:20px 40px;
-               border-top:1px solid #e2e8f0;text-align:center">
-      <p style="margin:0;color:#2d3ab1;font-size:13px;font-weight:700">Mobiis</p>
-      <p class="txt-muted" style="margin:4px 0 0;color:#94a3b8;font-size:11px;line-height:1.6">
-        Relatório gerado automaticamente pelo Painel Comercial Mobiis.<br>
-        {datetime.now().strftime("%d/%m/%Y às %H:%M")} · Documento confidencial.
-      </p>
+    <td class="foot" style="background:#f8faff;padding:20px 40px;
+               border-top:1px solid #e2e8f0">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <p style="margin:0;color:#2d3ab1;font-size:13px;font-weight:700">Mobiis</p>
+            <p style="margin:4px 0 0;color:#94a3b8;font-size:11px;line-height:1.6">
+              Relatório gerado em {datetime.now().strftime("%d/%m/%Y às %H:%M")}<br>
+              Documento <strong>confidencial</strong> — uso interno e financeiro
+            </p>
+          </td>
+          <td style="text-align:right;vertical-align:bottom">
+            <p style="margin:0;color:#94a3b8;font-size:10px">Aprovado por:</p>
+            <p style="margin:6px 0 0;color:#cbd5e1;font-size:11px;
+                       border-bottom:1px solid #cbd5e1;padding-bottom:2px;
+                       min-width:160px;display:inline-block">
+              &nbsp;
+            </p>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 
@@ -1113,46 +1129,17 @@ def montar_email(resultados, nome_faixa, bonus_faixa, sf_opcao, bonus_sf,
 </td></tr></table>
 </body></html>"""
 
-def enviar_email(remetente, senha, destinatarios, assunto, corpo):
-    msg = MIMEMultipart("alternative")
-    msg["From"] = remetente; msg["To"] = ", ".join(destinatarios); msg["Subject"] = assunto
-    msg.attach(MIMEText(corpo, "html", "utf-8"))
-    ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
-        s.login(remetente, senha)
-        s.sendmail(remetente, destinatarios, msg.as_string())
+'''
 
-def bloco_email(key, periodo_label):
-    st.markdown("---")
-    section("✉️", "Enviar Relatório por E-mail")
-    with st.expander("⚙️ Configurar envio", expanded=False):
-        c1, c2 = st.columns(2)
-        rem  = c1.text_input("Remetente (Gmail)", key=f"rem_{key}", placeholder="seu@gmail.com")
-        pwd  = c2.text_input("App Password",      key=f"pwd_{key}", type="password",
-                              help="myaccount.google.com/apppasswords")
-        dest = st.text_input("Destinatários (vírgula)",               key=f"dst_{key}")
-        subj = st.text_input("Assunto",
-                              value=f"Fechamento Comercial — {periodo_label}", key=f"sbj_{key}")
-    if st.button("📧 Enviar Relatório Executivo", key=f"send_{key}", use_container_width=True, type="primary"):
-        if not rem or not pwd or not dest:
-            st.error("Preencha remetente, senha e destinatários.")
-            return
-        d = st.session_state.get(f"res_{key}")
-        if not d:
-            st.error("Calcule antes de enviar.")
-            return
-        corpo = montar_email(d["resultados"], d["nome_faixa"], d["bonus_faixa"],
-                             d["sf_opcao"], d["bonus_sf"], d["total_contratos"],
-                             d["total_geral"], periodo_label, d.get("dados_raw"))
-        try:
-            with st.spinner("Enviando relatório..."):
-                enviar_email(rem, pwd, [x.strip() for x in dest.split(",")], subj, corpo)
-            st.success("✅ Relatório enviado com sucesso!")
-        except smtplib.SMTPAuthenticationError:
-            st.error("❌ Autenticação falhou. Use uma App Password do Gmail.")
-        except Exception as ex:
-            st.error(f"❌ Erro: {ex}")
+code = code[:start] + nova_funcao + code[end:]
 
+with open('/mnt/user-data/outputs/dashboard_comercial.py', 'w') as f:
+    f.write(code)
+print("OK — tamanho:", len(code))
+EOF
+Saída
+
+OK — tamanho: 204676
 # ═══════════════════════════════════════════════════════════════
 # INTERFACE
 # ═══════════════════════════════════════════════════════════════
